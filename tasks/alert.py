@@ -40,10 +40,7 @@ def dispatch_alerts(self: Task, listing_id: str, change_type: str) -> None:
 					logger.warning("alerts.dispatch.listing_not_found", listing_id=listing_id)
 					return
 
-				product = await product_repo.get_by_id(listing.product_id)
-				if product is None:
-					logger.warning("alerts.dispatch.product_not_found", listing_id=listing_id)
-					return
+				await product_repo.get_by_id(listing.product_id)
 
 				for watch in watches:
 					if not alert_service.should_alert(watch, change_type):
@@ -53,12 +50,12 @@ def dispatch_alerts(self: Task, listing_id: str, change_type: str) -> None:
 						user = await bot.fetch_user(int(watch.discord_user_id))
 					if user is None:
 						continue
-						embed = embed_builder.alert_embed(listing, product, change_type)
+					embed = embed_builder.alert_embed(listing, change_type)
 					await user.send(embed=embed)
 
 		asyncio.run(run())
 		logger.info("alerts.dispatch.completed", listing_id=listing_id, change_type=change_type)
-		except Exception as exc:
+	except Exception:
 		logger.exception("alerts.dispatch.failed", listing_id=listing_id, change_type=change_type)
-			raise self.retry(exc=exc, countdown=2 ** self.request.retries)
+		raise self.retry()
 
