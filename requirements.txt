@@ -1,0 +1,12 @@
+discord.py
+openai
+python-dotenv
+requests
+beautifulsoup4
+lxml
+pytest
+playwright
+sqlalchemy
+firecrawl
+pydantic
+fire
