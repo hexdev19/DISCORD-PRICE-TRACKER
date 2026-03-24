@@ -12,3 +12,4 @@ pydantic
 fire
 httpx
 celery[redis]
+structlog
