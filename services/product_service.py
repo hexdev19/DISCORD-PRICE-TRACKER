@@ -49,7 +49,7 @@ class ProductService:
 		self._history_repo = history_repo
 		self._scrape_service = scrape_service or _default_scrape_service
 
-	async def track_url(self, session: AsyncSession, url: str, discord_user_id: str) -> Listing:
+	async def track_url(self, session: AsyncSession, url: str, discord_user_id: str | None = None) -> Listing:
 		logger.info("product.track_url.started", url=url, discord_user_id=discord_user_id)
 
 		store_repo = self._store_repo(session)
@@ -81,14 +81,15 @@ class ProductService:
 		else:
 			await listing_repo.update_price(listing.id, scraped.price, scraped.in_stock)
 
-		existing_watch = await watch_repo.get_by_user_and_listing(
-			discord_user_id=discord_user_id,
-			listing_id=listing.id,
-		)
-		if existing_watch is not None:
-			raise DuplicateWatchError(discord_user_id=discord_user_id, listing_id=listing.id)
+		if discord_user_id is not None:
+			existing_watch = await watch_repo.get_by_user_and_listing(
+				discord_user_id=discord_user_id,
+				listing_id=listing.id,
+			)
+			if existing_watch is not None:
+				raise DuplicateWatchError(discord_user_id=discord_user_id, listing_id=listing.id)
 
-		await watch_repo.create(discord_user_id=discord_user_id, listing_id=listing.id)
+			await watch_repo.create(discord_user_id=discord_user_id, listing_id=listing.id)
 
 		latest_history = await history_repo.get_latest(listing.id)
 		if latest_history is None:

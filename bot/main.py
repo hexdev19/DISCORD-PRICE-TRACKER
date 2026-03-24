@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
  
 from config.settings import settings
+from tasks.celery_app import celery_app
 from utils.logger import get_logger
  
 logger = get_logger(__name__)
@@ -22,6 +23,11 @@ async def main() -> None:
     intents.message_content = True
  
     bot = commands.Bot(command_prefix="!", intents=intents)
+
+    @bot.event
+    async def on_ready() -> None:
+        celery_app.conf.bot = bot
+        logger.info("bot.ready", bot_user=str(bot.user))
  
     logger.info("bot.starting")
  

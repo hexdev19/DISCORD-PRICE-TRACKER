@@ -48,6 +48,11 @@ class ListingRepository:
 		result = await self.session.execute(stmt)
 		return list(result.scalars().unique().all())
 
+	async def get_distinct_watched_listing_ids(self) -> list[UUID]:
+		stmt = select(Listing.id).join(UserWatch, UserWatch.listing_id == Listing.id).distinct()
+		result = await self.session.execute(stmt)
+		return list(result.scalars().all())
+
 	async def create(
 		self,
 		product_id: UUID,

@@ -11,3 +11,4 @@ firecrawl
 pydantic
 fire
 httpx
+celery[redis]
