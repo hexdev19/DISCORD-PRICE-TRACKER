@@ -49,13 +49,12 @@ class ProductService:
 		self._history_repo = history_repo
 		self._scrape_service = scrape_service or _default_scrape_service
 
-	async def track_url(self, session: AsyncSession, url: str, discord_user_id: str | None = None) -> Listing:
-		logger.info("product.track_url.started", url=url, discord_user_id=discord_user_id)
+	async def resolve_listing(self, session: AsyncSession, url: str) -> Listing:
+		logger.info("product.resolve_listing.started", url=url)
 
 		store_repo = self._store_repo(session)
 		product_repo = self._product_repo(session)
 		listing_repo = self._listing_repo(session)
-		watch_repo = self._watch_repo(session)
 		history_repo = self._history_repo(session)
 
 		scraped = await self._scrape_service.scrape(url)
@@ -81,16 +80,6 @@ class ProductService:
 		else:
 			await listing_repo.update_price(listing.id, scraped.price, scraped.in_stock)
 
-		if discord_user_id is not None:
-			existing_watch = await watch_repo.get_by_user_and_listing(
-				discord_user_id=discord_user_id,
-				listing_id=listing.id,
-			)
-			if existing_watch is not None:
-				raise DuplicateWatchError(discord_user_id=discord_user_id, listing_id=listing.id)
-
-			await watch_repo.create(discord_user_id=discord_user_id, listing_id=listing.id)
-
 		latest_history = await history_repo.get_latest(listing.id)
 		if latest_history is None:
 			await history_repo.append(
@@ -102,6 +91,25 @@ class ProductService:
 				delta_pct=None,
 				change_type="no_change",
 			)
+
+		logger.info("product.resolve_listing.completed", url=url, listing_id=listing.id)
+		return listing
+
+	async def track_url(self, session: AsyncSession, url: str, discord_user_id: str | None = None) -> Listing:
+		logger.info("product.track_url.started", url=url, discord_user_id=discord_user_id)
+		watch_repo = self._watch_repo(session)
+
+		listing = await self.resolve_listing(session=session, url=url)
+
+		if discord_user_id is not None:
+			existing_watch = await watch_repo.get_by_user_and_listing(
+				discord_user_id=discord_user_id,
+				listing_id=listing.id,
+			)
+			if existing_watch is not None:
+				raise DuplicateWatchError(discord_user_id=discord_user_id, listing_id=listing.id)
+
+			await watch_repo.create(discord_user_id=discord_user_id, listing_id=listing.id)
 
 		logger.info("product.track_url.completed", url=url, discord_user_id=discord_user_id, listing_id=listing.id)
 		return listing

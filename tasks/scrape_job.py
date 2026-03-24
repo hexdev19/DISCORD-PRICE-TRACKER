@@ -6,20 +6,17 @@ from uuid import UUID
 
 from celery import Task
 
-from config.settings import settings
 from db.repository import HistoryRepository, ListingRepository, ProductRepository, StoreRepository, WatchRepository
 from db.session import AsyncSessionFactory
-from scraper.scrape_service import ScrapeService, build_scrape_service
-from scraper.schemas import ScrapedProduct
 from services.product_service import ProductService
 from tasks.alert import dispatch_alerts
 from tasks.celery_app import celery_app
+from utils import embed_builder
 from utils.logger import get_logger
 
 
 logger = get_logger(__name__)
 
-scrape_service: ScrapeService = build_scrape_service(settings)
 product_service = ProductService(StoreRepository, ProductRepository, ListingRepository, WatchRepository, HistoryRepository)
 
 
@@ -81,11 +78,11 @@ def scrape_batch(self: Task, urls: list[str], channel_id: int, message_id: int) 
 	logger.info("scrape_batch.started", url_count=len(urls), channel_id=channel_id, message_id=message_id)
 	try:
 		async def run() -> None:
-			results: list[ScrapedProduct] = []
+			results = []
 			async with AsyncSessionFactory() as session:
 				for url in urls:
-					await product_service.track_url(session=session, url=url)
-					results.append(await scrape_service.scrape(url))
+					listing = await product_service.resolve_listing(session=session, url=url)
+					results.append(listing)
 				await session.commit()
 
 			bot = celery_app.conf.get("bot")
@@ -98,12 +95,7 @@ def scrape_batch(self: Task, urls: list[str], channel_id: int, message_id: int) 
 				channel = await bot.fetch_channel(channel_id)
 
 			message = await channel.fetch_message(message_id)
-			lines = ["Search results:"]
-			for item in results:
-				status = "in stock" if item.in_stock else "out of stock"
-				lines.append(f"- {item.title} | {item.price} {item.currency} | {status}")
-
-			await message.edit(content="\n".join(lines))
+			await message.edit(embed=embed_builder.comparison_embed(results))
 
 		asyncio.run(run())
 		logger.info("scrape_batch.completed", url_count=len(urls), channel_id=channel_id, message_id=message_id)

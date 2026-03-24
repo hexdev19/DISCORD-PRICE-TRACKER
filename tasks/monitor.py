@@ -20,8 +20,8 @@ def monitor_all_listings() -> None:
 			listing_ids = await listing_repo.get_distinct_watched_listing_ids()
 			return [str(item) for item in listing_ids]
 
+	logger.info("monitor.started")
 	listing_ids = asyncio.run(run())
-	logger.info("monitor.started", listings=len(listing_ids))
 	for listing_id in listing_ids:
 		scrape_listing.delay(listing_id)
 	logger.info("monitor.completed", listings=len(listing_ids))
