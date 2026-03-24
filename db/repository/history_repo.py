@@ -63,6 +63,37 @@ class HistoryRepository:
 			"avg": row.avg,
 		}
 
+	async def get_stats_bulk(self, listing_ids: list[UUID], range_days: int | None) -> dict[UUID, dict]:
+		if not listing_ids:
+			return {}
+
+		stmt = (
+			select(
+				ListingHistory.listing_id.label("listing_id"),
+				func.min(ListingHistory.price).label("min"),
+				func.max(ListingHistory.price).label("max"),
+				func.avg(ListingHistory.price).label("avg"),
+			)
+			.where(ListingHistory.listing_id.in_(listing_ids))
+			.group_by(ListingHistory.listing_id)
+		)
+		if range_days is not None:
+			since = datetime.utcnow() - timedelta(days=range_days)
+			stmt = stmt.where(ListingHistory.recorded_at >= since)
+
+		rows = (await self.session.execute(stmt)).all()
+		stats: dict[UUID, dict] = {
+			listing_id: {"min": None, "max": None, "avg": None}
+			for listing_id in listing_ids
+		}
+		for row in rows:
+			stats[row.listing_id] = {
+				"min": row.min,
+				"max": row.max,
+				"avg": row.avg,
+			}
+		return stats
+
 	async def append(
 		self,
 		listing_id: UUID,

@@ -38,6 +38,16 @@ class ListingRepository:
 		result = await self.session.execute(stmt)
 		return list(result.scalars().all())
 
+	async def get_product_listings_scoped(self, product_id: UUID) -> list[Listing]:
+		stmt = (
+			select(Listing)
+			.join(UserWatch, UserWatch.listing_id == Listing.id)
+			.where(Listing.product_id == product_id)
+			.order_by(Listing.current_price.asc())
+		)
+		result = await self.session.execute(stmt)
+		return list(result.scalars().unique().all())
+
 	async def create(
 		self,
 		product_id: UUID,

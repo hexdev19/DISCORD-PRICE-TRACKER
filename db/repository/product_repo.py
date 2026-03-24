@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import Product
+from db.models import Listing, Product, UserWatch
 
 
 class ProductRepository:
@@ -43,4 +43,17 @@ class ProductRepository:
 		self.session.add(product)
 		await self.session.flush()
 		return product
+
+	async def search_user_products(self, discord_user_id: str, query: str, limit: int = 25) -> list[Product]:
+		stmt = (
+			select(Product)
+			.join(Listing, Listing.product_id == Product.id)
+			.join(UserWatch, UserWatch.listing_id == Listing.id)
+			.where(UserWatch.discord_user_id == discord_user_id)
+			.where(Product.canonical_name.ilike(f"%{query}%"))
+			.order_by(Product.canonical_name.asc())
+			.limit(limit)
+		)
+		result = await self.session.execute(stmt)
+		return list(result.scalars().unique().all())
 
