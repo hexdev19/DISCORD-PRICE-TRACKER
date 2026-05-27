@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 ScrapeStatus = Literal["ok", "partial", "failed"]
-
+   
 ScrapeErrorCode = Literal[
     "ssrf_blocked",
     "fetch_failed",

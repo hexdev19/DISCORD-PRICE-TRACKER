@@ -1,15 +1,3 @@
-"""URL canonicalization and SSRF-safe resolution.
-
-Two surfaces:
-
-* ``canonicalize_url`` produces the value stored in ``products.source_url``.
-  Two pastes of the same product with different tracking tails must
-  canonicalize to identical strings.
-* ``resolve_url_safely`` is the mandatory pre-fetch gate. It validates
-  the scheme, resolves DNS, rejects any non-publicly-routable IP, and
-  pins the resolved IP to defeat DNS rebind on the subsequent fetch.
-"""
-
 from __future__ import annotations
 
 import ipaddress
@@ -100,12 +88,7 @@ def domain_of(url: str) -> str:
 
 
 def resolve_url_safely(url: str) -> tuple[str, str]:
-    """Validate + DNS-resolve. Returns ``(url, pinned_ip)``.
 
-    Caller must use ``pinned_ip`` for the actual connection (e.g. via
-    ``socket.create_connection((pinned_ip, port))`` or by setting the
-    Host header explicitly).
-    """
     if len(url) > URL_MAX_LENGTH:
         raise UnsafeURLError("url too long")
     parts = urlsplit(url)
