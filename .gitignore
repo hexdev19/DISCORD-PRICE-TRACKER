@@ -1,2 +1,6 @@
 .env
+.env.local
+CLAUDE.md
+claude/
 venv/
+planning/
