@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable
 from urllib.parse import urlsplit
 
-from app.scraper import autoextract, structured
+from app.scraper import autoextract, identifiers, structured
 from app.scraper.adapters import find_adapter
 from app.scraper.adapters.base import SiteAdapter
 from app.scraper.circuit import CircuitBreaker
@@ -53,37 +53,27 @@ class TierRouter:
             if html is not None:
                 t1 = structured.extract_structured(html, region_hint=region_hint)
                 if t1.is_ok:
-                    await self._deps.circuit.record_success(domain)
-                    log.info("scrape.end", domain=domain, tier=1, status="ok")
-                    return t1
+                    return await self._success(domain, url, t1, tier=1)
 
                 t2 = autoextract.auto_extract(html, region_hint=region_hint)
                 if t2.is_ok:
-                    await self._deps.circuit.record_success(domain)
-                    log.info("scrape.end", domain=domain, tier=2, status="ok")
-                    return t2
+                    return await self._success(domain, url, t2, tier=2)
 
                 if adapter is not None:
                     t3 = await self._run_adapter(adapter, url, html=html, rendered=None)
                     if t3.is_ok:
-                        await self._deps.circuit.record_success(domain)
-                        log.info("scrape.end", domain=domain, tier=3, status="ok")
-                        return t3
+                        return await self._success(domain, url, t3, tier=3)
 
         if adapter is not None and adapter.needs_browser:
             rendered = await self._safe_render(url, domain)
             if rendered is not None:
                 t4 = await self._run_adapter(adapter, url, html=None, rendered=rendered)
                 if t4.is_ok:
-                    await self._deps.circuit.record_success(domain)
-                    log.info("scrape.end", domain=domain, tier=4, status="ok")
-                    return t4
+                    return await self._success(domain, url, t4, tier=4)
                 t4_struct = structured.extract_structured(rendered, region_hint=region_hint)
                 if t4_struct.is_ok:
                     t4_struct.tier_used = 4
-                    await self._deps.circuit.record_success(domain)
-                    log.info("scrape.end", domain=domain, tier=4, status="ok")
-                    return t4_struct
+                    return await self._success(domain, url, t4_struct, tier=4)
 
         await self._deps.circuit.record_failure(domain)
         log.info("scrape.end", domain=domain, status="failed")
@@ -98,6 +88,16 @@ class TierRouter:
             tier_used=4 if adapter.needs_browser else 3,
             error=ScrapeError(code="no_price"),
         )
+
+    async def _success(
+        self, domain: str, url: str, result: ScrapeResult, *, tier: int
+    ) -> ScrapeResult:
+        for field, value in identifiers.from_url(url).items():
+            if getattr(result, field, None) is None:
+                setattr(result, field, value)
+        await self._deps.circuit.record_success(domain)
+        log.info("scrape.end", domain=domain, tier=tier, status="ok")
+        return result
 
     async def _safe_fetch(self, url: str, domain: str) -> str | None:
         try:

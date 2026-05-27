@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import CHAR, BigInteger, ForeignKey, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -28,7 +29,7 @@ class Watch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         ForeignKey("products.id"), index=True, nullable=False
     )
 
-    alert_rules: Mapped[dict[str, Any]] = mapped_column(nullable=False)
+    alert_rules: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     alert_channel_id: Mapped[int | None] = mapped_column(BigInteger)
     alert_role_id: Mapped[int | None] = mapped_column(BigInteger)
     region_override: Mapped[str | None] = mapped_column(CHAR(2))

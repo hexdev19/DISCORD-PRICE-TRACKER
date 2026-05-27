@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import BigInteger, ForeignKey, Index, Numeric, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -34,7 +35,7 @@ class AlertEvent(Base):
     previous_in_stock: Mapped[bool | None]
     new_in_stock: Mapped[bool | None]
 
-    payload: Mapped[dict[str, Any]] = mapped_column(nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     delivery_status: Mapped[str] = mapped_column(
         String(32), default="pending", server_default="pending", nullable=False
     )

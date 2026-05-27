@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import MetaData, func
-from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 NAMING_CONVENTION = {
@@ -22,7 +21,6 @@ class Base(DeclarativeBase):
 
     type_annotation_map = {
         datetime: TIMESTAMP(timezone=True),
-        dict[str, Any]: JSONB,
         uuid.UUID: UUID(as_uuid=True),
     }
 
