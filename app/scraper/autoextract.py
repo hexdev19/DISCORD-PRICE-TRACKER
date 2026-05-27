@@ -1,12 +1,3 @@
-"""Tier 2 — heuristic auto-extract.
-
-Runs when Tier 1 returns no structured data. We score visible elements
-that look price-like (itemprop="price", class names containing 'price',
-or text matching a price pattern) and pick the highest-confidence match.
-
-No per-site code. Falls through to Tier 3 adapters if confidence is low.
-"""
-
 from __future__ import annotations
 
 import re

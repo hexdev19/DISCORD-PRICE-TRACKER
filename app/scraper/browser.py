@@ -1,10 +1,3 @@
-"""Tier 4 — Scrapling ``AsyncStealthySession`` wrapper.
-
-One persistent session per worker process; ``max_pages`` from limits.py.
-Importing this module does not start a browser — the session is started
-lazily on first ``render`` call.
-"""
-
 from __future__ import annotations
 
 import asyncio

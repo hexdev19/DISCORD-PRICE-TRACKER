@@ -1,9 +1,3 @@
-"""Tier router.
-
-Composes Tiers 1 → 4 behind a single ``scrape(url)`` entry point.
-Tier choices follow scraping-strategy.md; the cheapest passing tier wins.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass

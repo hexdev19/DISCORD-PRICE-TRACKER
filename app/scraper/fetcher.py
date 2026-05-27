@@ -1,10 +1,3 @@
-"""HTTP fetcher boundary.
-
-Thin wrapper around Scrapling's ``AsyncFetcher`` so the rest of the
-scraper depends on a stable, mockable interface. SSRF protection is
-mandatory: every call goes through ``resolve_url_safely`` first.
-"""
-
 from __future__ import annotations
 
 from typing import Any

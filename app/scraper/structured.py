@@ -1,10 +1,3 @@
-"""Tier 1 — structured-data extraction.
-
-Reads JSON-LD ``Product`` blocks, microdata, RDFa, and OpenGraph from a
-fetched HTML payload. Pure parsing; the actual HTTP fetch happens in the
-router (Scrapling ``AsyncFetcher``).
-"""
-
 from __future__ import annotations
 
 import json

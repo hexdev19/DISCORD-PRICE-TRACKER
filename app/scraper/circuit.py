@@ -1,10 +1,3 @@
-"""Per-domain circuit breaker.
-
-State and timeouts live in Redis so workers share a single view; an
-in-memory implementation is provided for tests. Defaults come from
-``app.config.limits`` (ADR-011).
-"""
-
 from __future__ import annotations
 
 import time
@@ -68,14 +61,7 @@ def _real_clock() -> float:
 
 
 class RedisCircuitBreaker:
-    """Redis-backed shared circuit breaker.
 
-    Keys:
-        circuit:{domain}:state        -> "closed"|"open"|"half_open"
-        circuit:{domain}:fails        -> int (closed-state counter)
-        circuit:{domain}:opened_at    -> float monotonic
-        circuit:{domain}:timeout      -> float seconds
-    """
 
     def __init__(self, redis: object) -> None:
         self._redis = redis

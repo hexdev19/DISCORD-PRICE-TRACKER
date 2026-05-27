@@ -1,8 +1,3 @@
-"""Price, currency, and stock-signal normalization.
-
-Pure functions. No I/O.
-"""
-
 from __future__ import annotations
 
 import re
