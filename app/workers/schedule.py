@@ -1,8 +1,3 @@
-"""Celery beat schedule (single source of truth).
-
-Cadences mirror :doc:`workers-and-alerts.md` §Beat schedule.
-"""
-
 from __future__ import annotations
 
 from typing import Any

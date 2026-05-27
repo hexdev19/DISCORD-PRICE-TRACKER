@@ -1,16 +1,3 @@
-"""Celery application.
-
-This module is the entry point for ``celery -A app.workers.celery_app``
-commands. Importing it:
-
-1. Builds the Celery app with Redis broker + backend.
-2. Wires :mod:`app.services.queue` so other layers can enqueue via the
-   ``celery_app.send_task`` seam without importing this package.
-3. Initializes Sentry and OpenTelemetry under Celery signals.
-4. Imports the task modules so their ``@celery_app.task`` decorators
-   register names.
-"""
-
 from __future__ import annotations
 
 from celery import Celery
@@ -62,5 +49,4 @@ def _init_worker(**_kwargs: object) -> None:
     init_tracing("workers")
 
 
-# Side-effect: register tasks under their declared names.
 from app.workers.tasks import alert, housekeeping, maintenance, scrape  # noqa: E402,F401

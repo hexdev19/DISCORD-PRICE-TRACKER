@@ -1,10 +1,3 @@
-"""Per-domain politeness limiter.
-
-Fixed 60-second window: at most ``DOMAIN_REQUESTS_PER_MIN`` requests per
-domain. INCR + EXPIRE is atomic enough for this use case (no need for a
-full token bucket at MVP).
-"""
-
 from __future__ import annotations
 
 from typing import Any

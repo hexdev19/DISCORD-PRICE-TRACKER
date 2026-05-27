@@ -1,10 +1,3 @@
-"""Per-product scrape lock.
-
-``acquire`` uses ``SETNX + EX`` so a single product can never be scraped
-concurrently by two workers; ``release`` matches the value to avoid
-deleting a lock another worker has rotated in.
-"""
-
 from __future__ import annotations
 
 import secrets

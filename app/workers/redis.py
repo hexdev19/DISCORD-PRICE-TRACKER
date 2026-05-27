@@ -1,10 +1,3 @@
-"""Redis client factories.
-
-One async client per process is enough for our access patterns (locks,
-rate limits, cool-downs). The sync variant exists for the Celery
-internals that don't yet run inside an event loop.
-"""
-
 from __future__ import annotations
 
 from typing import Any

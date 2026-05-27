@@ -1,10 +1,3 @@
-"""Minimal Discord REST client for alert delivery.
-
-POSTs an embed to ``/channels/{id}/messages``. Returns a discriminated
-``DispatchOutcome`` so the calling task can decide retry vs permanent
-failure without parsing exceptions. 429 is honored via ``Retry-After``.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
