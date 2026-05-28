@@ -38,6 +38,18 @@ def test_microdata_fallback_when_no_jsonld() -> None:
     assert result.raw_fingerprint["matched"] == "microdata"
 
 
+def test_microdata_ignores_brand_and_related_product_scopes() -> None:
+    result = extract_structured(_load("microdata_nested.html"))
+    assert result.status == "ok"
+    assert result.tier_used == 1
+    assert result.title == "Sony WH-1000XM5"
+    assert result.brand == "Sony"
+    assert result.price == Decimal("349.99")
+    assert result.currency == "USD"
+    assert result.in_stock is True
+    assert result.raw_fingerprint["matched"] == "microdata"
+
+
 def test_opengraph_fallback() -> None:
     result = extract_structured(_load("opengraph_only.html"))
     assert result.tier_used == 1

@@ -44,17 +44,43 @@ def alert_embed(event: AlertEvent, watch: Watch, product: Product) -> dict[str, 
 
 
 def watch_added(watch: Watch, product: Product) -> dict[str, Any]:
-    return {
+    scraped = product.last_scraped_at is not None
+    fields: list[dict[str, Any]] = [
+        {"name": "ID", "value": f"`{watch.short_id}`", "inline": True},
+        {"name": "Alerts", "value": _format_rules(watch.alert_rules), "inline": True},
+    ]
+    if scraped:
+        fields.append(
+            {
+                "name": "Price",
+                "value": f"{_money(product.last_known_price)} {product.currency or ''}".strip(),
+                "inline": True,
+            }
+        )
+        fields.append(
+            {
+                "name": "Stock",
+                "value": "in stock"
+                if product.last_known_in_stock
+                else ("out of stock" if product.last_known_in_stock is False else "unknown"),
+                "inline": True,
+            }
+        )
+    embed: dict[str, Any] = {
         "title": "Now tracking",
         "url": product.source_url,
         "description": product.title or product.source_url,
         "color": COLOR_SUCCESS,
-        "fields": [
-            {"name": "ID", "value": f"`{watch.short_id}`", "inline": True},
-            {"name": "Alerts", "value": _format_rules(watch.alert_rules), "inline": True},
-        ],
-        "footer": {"text": "Use /watch refresh <id> to scrape on demand"},
+        "fields": fields,
+        "footer": {
+            "text": "Use /watch refresh <id> to scrape on demand"
+            if scraped
+            else "Fetching product details…"
+        },
     }
+    if product.image_url:
+        embed["thumbnail"] = {"url": product.image_url}
+    return embed
 
 
 def watch_list(
@@ -68,7 +94,11 @@ def watch_list(
     lines: list[str] = []
     for watch, product in rows:
         price = _money(product.last_known_price)
-        stock = "✅" if product.last_known_in_stock else ("❌" if product.last_known_in_stock is False else "❓")
+        stock = (
+            "✅"
+            if product.last_known_in_stock
+            else ("❌" if product.last_known_in_stock is False else "❓")
+        )
         title = (product.title or product.source_url)[:60]
         lines.append(f"`{watch.short_id}` · {price} {product.currency or ''} {stock} · {title}")
     return {
@@ -123,7 +153,10 @@ def config_show(server: Server, watch_count: int, watch_cap: int) -> dict[str, A
         "color": COLOR_NEUTRAL,
         "fields": [
             {"name": "Tracker role", "value": _mention("role", server.tracker_role_id)},
-            {"name": "Alert channel", "value": _mention("channel", server.default_alert_channel_id)},
+            {
+                "name": "Alert channel",
+                "value": _mention("channel", server.default_alert_channel_id),
+            },
             {"name": "Mention role", "value": _mention("role", server.default_alert_role_id)},
             {"name": "Region", "value": server.region_default or "—"},
             {"name": "Usage", "value": f"{watch_count}/{watch_cap} watches"},

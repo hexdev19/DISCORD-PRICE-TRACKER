@@ -7,7 +7,6 @@ from celery import shared_task
 from sqlalchemy import delete, select
 
 from app.config.limits import SOFT_DELETE_GRACE_DAYS
-from app.db.session import SessionFactory
 from app.models.alert_event import AlertEvent
 from app.models.membership import ServerMembership
 from app.models.price_snapshot import PriceSnapshot
@@ -16,6 +15,7 @@ from app.models.user import User
 from app.models.watch import Watch
 from app.repositories.audit_repo import AuditLogRepository
 from app.utils.logger import get_logger
+from app.workers.runtime import worker_runtime
 
 log = get_logger(__name__)
 
@@ -23,7 +23,7 @@ log = get_logger(__name__)
 async def _cleanup_servers() -> int:
     cutoff = datetime.now(timezone.utc) - timedelta(days=SOFT_DELETE_GRACE_DAYS)
     removed = 0
-    async with SessionFactory() as session:
+    async with worker_runtime() as runtime, runtime.session_factory() as session:
         stale = (
             await session.execute(
                 select(Server).where(
@@ -66,7 +66,7 @@ async def _cleanup_servers() -> int:
 async def _cleanup_accounts() -> int:
     cutoff = datetime.now(timezone.utc) - timedelta(days=SOFT_DELETE_GRACE_DAYS)
     removed = 0
-    async with SessionFactory() as session:
+    async with worker_runtime() as runtime, runtime.session_factory() as session:
         stale = (
             await session.execute(
                 select(User).where(

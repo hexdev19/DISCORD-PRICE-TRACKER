@@ -21,13 +21,14 @@ class WatchRepository:
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def get_by_server_and_product(
-        self, server_id: uuid.UUID, product_id: uuid.UUID
+        self, server_id: uuid.UUID, product_id: uuid.UUID, *, include_removed: bool = False
     ) -> Watch | None:
         stmt = select(Watch).where(
             Watch.server_id == server_id,
             Watch.product_id == product_id,
-            Watch.removed_at.is_(None),
         )
+        if not include_removed:
+            stmt = stmt.where(Watch.removed_at.is_(None))
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def list_for_server(self, server_id: uuid.UUID) -> list[Watch]:

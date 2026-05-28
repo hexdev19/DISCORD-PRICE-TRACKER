@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import json
-import re
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator, Sequence
 from typing import Any
 
 from lxml import html as lxml_html
 
 from app.scraper.normalize import parse_currency, parse_price, parse_stock
 from app.scraper.schemas import ScrapeResult
+
+_PRODUCT_TYPES: tuple[str, ...] = ("Product", "IndividualProduct")
+_BRAND_TYPES: tuple[str, ...] = ("Brand", "Organization")
+_OFFER_TYPES: tuple[str, ...] = ("Offer", "AggregateOffer")
 
 
 def extract_structured(html: str, *, region_hint: str | None = None) -> ScrapeResult:
@@ -22,7 +25,7 @@ def extract_structured(html: str, *, region_hint: str | None = None) -> ScrapeRe
 
     fingerprint: dict[str, Any] = {}
 
-    for product in _iter_jsonld_products(tree):
+    for product in _select_jsonld_products(tree):
         result = _from_jsonld(product, region_hint=region_hint)
         if result is not None:
             result.raw_fingerprint = {**fingerprint, "matched": "json-ld"}
@@ -42,7 +45,8 @@ def extract_structured(html: str, *, region_hint: str | None = None) -> ScrapeRe
     return ScrapeResult(status="failed", tier_used=1, raw_fingerprint=fingerprint)
 
 
-def _iter_jsonld_products(tree: lxml_html.HtmlElement) -> Iterator[dict[str, Any]]:
+def _select_jsonld_products(tree: lxml_html.HtmlElement) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
     for script in tree.xpath('//script[@type="application/ld+json"]'):
         text = (script.text_content() or "").strip()
         if not text:
@@ -51,31 +55,32 @@ def _iter_jsonld_products(tree: lxml_html.HtmlElement) -> Iterator[dict[str, Any
             data = json.loads(text)
         except json.JSONDecodeError:
             continue
-        yield from _walk_for_product(data)
+        candidates.extend(_collect_products(data))
+    with_offers = [node for node in candidates if node.get("offers")]
+    return with_offers or candidates
 
 
-def _walk_for_product(node: Any) -> Iterator[dict[str, Any]]:
-    if isinstance(node, dict):
-        graph = node.get("@graph")
-        if isinstance(graph, list):
-            for item in graph:
-                yield from _walk_for_product(item)
-        types = node.get("@type")
-        if _matches_product(types):
-            yield node
-        for v in node.values():
-            if isinstance(v, (dict, list)) and v is not node.get("@graph"):
-                yield from _walk_for_product(v)
-    elif isinstance(node, list):
+def _collect_products(node: Any) -> Iterator[dict[str, Any]]:
+    if isinstance(node, list):
         for item in node:
-            yield from _walk_for_product(item)
+            yield from _collect_products(item)
+        return
+    if not isinstance(node, dict):
+        return
+    if _matches_type(node.get("@type"), _PRODUCT_TYPES):
+        yield node
+    graph = node.get("@graph")
+    if isinstance(graph, list):
+        for item in graph:
+            yield from _collect_products(item)
 
 
-def _matches_product(types: Any) -> bool:
+def _matches_type(types: Any, names: Sequence[str]) -> bool:
+    lowered = {n.lower() for n in names}
     if isinstance(types, str):
-        return types.lower() == "product"
+        return types.lower() in lowered
     if isinstance(types, list):
-        return any(isinstance(t, str) and t.lower() == "product" for t in types)
+        return any(isinstance(t, str) and t.lower() in lowered for t in types)
     return False
 
 
@@ -96,7 +101,11 @@ def _from_jsonld(node: dict[str, Any], *, region_hint: str | None) -> ScrapeResu
     if price is None and currency is None:
         return None
 
-    status = "ok" if price is not None and (in_stock is not None or currency is not None) else "partial"
+    status = (
+        "ok"
+        if price is not None and (in_stock is not None or currency is not None)
+        else "partial"
+    )
     return ScrapeResult(
         status=status,
         tier_used=1,
@@ -120,30 +129,37 @@ def _offer_fields(offers: Any) -> tuple[str | None, str | None, str | None]:
     price = offers.get("price") or offers.get("lowPrice") or offers.get("highPrice")
     currency = offers.get("priceCurrency") or offers.get("currency")
     availability = offers.get("availability")
-    return (
-        _coerce_str(price),
-        _coerce_str(currency),
-        _coerce_str(availability),
-    )
+    return _coerce_str(price), _coerce_str(currency), _coerce_str(availability)
 
 
 def _from_microdata(
     tree: lxml_html.HtmlElement, *, region_hint: str | None
 ) -> ScrapeResult | None:
-    scopes = tree.xpath(
-        '//*[contains(@itemtype, "schema.org/Product") or contains(@itemtype, "schema.org/IndividualProduct")]'
-    )
-    if not scopes:
+    scope = _pick_product_scope(_find_product_scopes(tree))
+    if scope is None:
         return None
-    scope = scopes[0]
-    title = _itemprop(scope, "name")
-    image = _itemprop(scope, "image", attr="src") or _itemprop(scope, "image")
-    brand = _itemprop(scope, "brand")
-    price_raw = _itemprop(scope, "price", attr="content") or _itemprop(scope, "price")
-    currency_raw = _itemprop(scope, "priceCurrency", attr="content") or _itemprop(
-        scope, "priceCurrency"
+
+    title = _direct_itemprop(scope, "name")
+    image = _direct_itemprop(scope, "image", attr="src") or _direct_itemprop(scope, "image")
+
+    brand_scope = _find_subscope(scope, "brand", _BRAND_TYPES)
+    brand = (
+        _direct_itemprop(brand_scope, "name")
+        if brand_scope is not None
+        else _direct_itemprop(scope, "brand")
     )
-    avail = _itemprop(scope, "availability", attr="href") or _itemprop(scope, "availability")
+
+    offer_scope = _find_subscope(scope, "offers", _OFFER_TYPES)
+    offer = offer_scope if offer_scope is not None else scope
+    price_raw = _direct_itemprop(offer, "price", attr="content") or _direct_itemprop(
+        offer, "price"
+    )
+    currency_raw = _direct_itemprop(
+        offer, "priceCurrency", attr="content"
+    ) or _direct_itemprop(offer, "priceCurrency")
+    avail = _direct_itemprop(offer, "availability", attr="href") or _direct_itemprop(
+        offer, "availability"
+    )
 
     price = parse_price(price_raw)
     currency = parse_currency(currency_raw, region_hint=region_hint)
@@ -161,6 +177,74 @@ def _from_microdata(
         in_stock=in_stock,
         region_hint=region_hint,
     )
+
+
+def _find_product_scopes(tree: lxml_html.HtmlElement) -> list[lxml_html.HtmlElement]:
+    nodes: list[lxml_html.HtmlElement] = tree.xpath(
+        '//*[@itemscope and ('
+        'contains(@itemtype, "schema.org/Product")'
+        ' or contains(@itemtype, "schema.org/IndividualProduct"))]'
+    )
+    return nodes
+
+
+def _pick_product_scope(
+    scopes: Sequence[lxml_html.HtmlElement],
+) -> lxml_html.HtmlElement | None:
+    if not scopes:
+        return None
+    for scope in scopes:
+        if _find_subscope(scope, "offers", _OFFER_TYPES) is not None:
+            return scope
+    return scopes[0]
+
+
+def _find_subscope(
+    scope: lxml_html.HtmlElement, prop: str, type_suffixes: Sequence[str]
+) -> lxml_html.HtmlElement | None:
+    for el in _direct_itemprop_nodes(scope, prop):
+        if el.get("itemscope") is None:
+            continue
+        itemtype = el.get("itemtype") or ""
+        if any(itemtype.rsplit("/", 1)[-1] == suffix for suffix in type_suffixes):
+            return el
+    return None
+
+
+def _direct_itemprop(
+    scope: lxml_html.HtmlElement, name: str, *, attr: str | None = None
+) -> str | None:
+    for el in _direct_itemprop_nodes(scope, name):
+        if attr is not None:
+            text = _coerce_str(el.get(attr))
+            if text:
+                return text
+            continue
+        text = _coerce_str(el.get("content")) or _coerce_str(el.text_content())
+        if text:
+            return text
+    return None
+
+
+def _direct_itemprop_nodes(
+    scope: lxml_html.HtmlElement, name: str
+) -> list[lxml_html.HtmlElement]:
+    return [
+        el
+        for el in scope.xpath(f'.//*[@itemprop="{name}"]')
+        if _nearest_itemscope(el, scope) is scope
+    ]
+
+
+def _nearest_itemscope(
+    el: lxml_html.HtmlElement, root: lxml_html.HtmlElement
+) -> lxml_html.HtmlElement:
+    parent = el.getparent()
+    while parent is not None and parent is not root:
+        if parent.get("itemscope") is not None:
+            return parent
+        parent = parent.getparent()
+    return root
 
 
 def _from_opengraph(
@@ -201,21 +285,6 @@ def _meta_map(tree: lxml_html.HtmlElement) -> dict[str, str]:
     return out
 
 
-def _itemprop(
-    scope: lxml_html.HtmlElement, name: str, *, attr: str | None = None
-) -> str | None:
-    matches = scope.xpath(f'.//*[@itemprop="{name}"]')
-    if not matches:
-        return None
-    el = matches[0]
-    if attr:
-        val = el.get(attr)
-        if val:
-            return val.strip()
-    val = el.get("content") or el.text_content()
-    return val.strip() if val else None
-
-
 def _coerce_str(value: Any) -> str | None:
     if value is None:
         return None
@@ -241,14 +310,6 @@ def _brand_str(value: Any) -> str | None:
     if isinstance(value, dict):
         return _coerce_str(value.get("name"))
     return _coerce_str(value)
-
-
-_PRICE_PATTERN = re.compile(r"\b(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)\b")
-_FALLBACK_FIELDS: tuple[str, ...] = ("price", "amount", "cost")
-
-
-def _has_price_signals(text: Iterable[str]) -> bool:
-    return any(_PRICE_PATTERN.search(t) for t in text)
 
 
 __all__ = ["extract_structured"]

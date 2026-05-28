@@ -5,7 +5,6 @@ from typing import Any
 
 from celery import shared_task
 
-from app.db.session import SessionFactory
 from app.repositories.alert_repo import AlertEventRepository
 from app.repositories.audit_repo import AuditLogRepository
 from app.repositories.product_repo import ProductRepository
@@ -14,6 +13,7 @@ from app.repositories.watch_repo import WatchRepository
 from app.utils.embed_builder import alert_embed
 from app.utils.logger import get_logger
 from app.workers.discord_dispatcher import DiscordDispatcher, DispatchOutcome
+from app.workers.runtime import worker_runtime
 
 log = get_logger(__name__)
 
@@ -26,7 +26,7 @@ async def _dispatch(
     dispatcher: DiscordDispatcher | None = None,
 ) -> DispatchOutcome | None:
     dispatcher = dispatcher or DiscordDispatcher()
-    async with SessionFactory() as session:
+    async with worker_runtime() as runtime, runtime.session_factory() as session:
         alerts = AlertEventRepository(session)
         event = await alerts.get(alert_event_id)
         if event is None:

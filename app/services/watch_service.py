@@ -58,16 +58,26 @@ class WatchService:
             raw_url, region=server.region_default
         )
 
-        existing = await self.watches.get_by_server_and_product(server.id, product.id)
-        if existing is not None:
+        existing = await self.watches.get_by_server_and_product(
+            server.id, product.id, include_removed=True
+        )
+        if existing is not None and existing.removed_at is None:
             raise AlreadyExists(f"already tracked as {existing.short_id}")
 
-        watch = await self.watches.create(
-            server_id=server.id,
-            added_by_user_id=user.id,
-            product_id=product.id,
-            alert_rules=dict(DEFAULT_ALERT_RULES),
-        )
+        if existing is not None:
+            existing.removed_at = None
+            existing.is_active = True
+            existing.paused_at = None
+            existing.added_by_user_id = user.id
+            existing.alert_rules = dict(DEFAULT_ALERT_RULES)
+            watch = existing
+        else:
+            watch = await self.watches.create(
+                server_id=server.id,
+                added_by_user_id=user.id,
+                product_id=product.id,
+                alert_rules=dict(DEFAULT_ALERT_RULES),
+            )
         await self.audit.record(
             action="watch.created",
             actor_type="user",

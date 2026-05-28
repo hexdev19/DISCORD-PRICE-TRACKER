@@ -51,20 +51,3 @@ class BrowserSession:
             if start is not None:
                 await start()
             return self._session
-
-
-_singleton: BrowserSession | None = None
-
-
-def get_browser_session() -> BrowserSession:
-    global _singleton
-    if _singleton is None:
-        _singleton = BrowserSession()
-    return _singleton
-
-
-async def shutdown_browser_session() -> None:
-    global _singleton
-    if _singleton is not None:
-        await _singleton.close()
-        _singleton = None

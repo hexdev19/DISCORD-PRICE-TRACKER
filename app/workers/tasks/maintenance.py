@@ -13,11 +13,10 @@ from app.config.limits import (
     CIRCUIT_OPEN_INITIAL_SECONDS,
     PRICE_HISTORY_DAYS,
 )
-from app.db.session import SessionFactory
 from app.models.fx_rate import FxRate
 from app.models.price_snapshot import PriceSnapshot
 from app.utils.logger import get_logger
-from app.workers.redis import async_client
+from app.workers.runtime import worker_runtime
 
 log = get_logger(__name__)
 
@@ -46,7 +45,7 @@ async def _refresh_fx(*, client: httpx.AsyncClient | None = None) -> bool:
         return False
 
     today = date.fromisoformat(body.get("date", date.today().isoformat()))
-    async with SessionFactory() as session:
+    async with worker_runtime() as runtime, runtime.session_factory() as session:
         existing = (
             await session.execute(select(FxRate).where(FxRate.date == today))
         ).scalar_one_or_none()
@@ -70,7 +69,7 @@ async def _refresh_fx(*, client: httpx.AsyncClient | None = None) -> bool:
 async def _prune_snapshots() -> int:
     cutoff = datetime.now(timezone.utc) - timedelta(days=PRICE_HISTORY_DAYS)
     total = 0
-    async with SessionFactory() as session:
+    async with worker_runtime() as runtime, runtime.session_factory() as session:
         while True:
             ids_stmt = (
                 select(PriceSnapshot.id)
@@ -89,23 +88,26 @@ async def _prune_snapshots() -> int:
 
 
 async def _circuit_probe() -> int:
-    redis = async_client()
     transitioned = 0
-    cursor: Any = 0
-    while True:
-        cursor, keys = await redis.scan(cursor=cursor, match="circuit:*:opened_at", count=200)
-        for key in keys:
-            opened_raw = await redis.get(key)
-            if opened_raw is None:
-                continue
-            timeout_key = key.replace(":opened_at", ":timeout")
-            timeout_raw = await redis.get(timeout_key)
-            timeout = float(timeout_raw or CIRCUIT_OPEN_INITIAL_SECONDS)
-            if time.time() - float(opened_raw) < timeout:
-                continue
-            transitioned += 1
-        if cursor in (0, "0"):
-            break
+    async with worker_runtime() as runtime:
+        redis = runtime.redis
+        cursor: Any = 0
+        while True:
+            cursor, keys = await redis.scan(
+                cursor=cursor, match="circuit:*:opened_at", count=200
+            )
+            for key in keys:
+                opened_raw = await redis.get(key)
+                if opened_raw is None:
+                    continue
+                timeout_key = key.replace(":opened_at", ":timeout")
+                timeout_raw = await redis.get(timeout_key)
+                timeout = float(timeout_raw or CIRCUIT_OPEN_INITIAL_SECONDS)
+                if time.time() - float(opened_raw) < timeout:
+                    continue
+                transitioned += 1
+            if cursor in (0, "0"):
+                break
     log.info("circuit.probe", half_open=transitioned)
     return transitioned
 

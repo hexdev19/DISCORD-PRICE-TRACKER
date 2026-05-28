@@ -19,21 +19,22 @@ from app.utils.logger import get_logger
 log = get_logger(__name__)
 
 
+class PriceTrackerBot(commands.Bot):
+    async def setup_hook(self) -> None:
+        await self.add_cog(LifecycleCog(self))
+        for module in COG_MODULES:
+            await self.load_extension(module)
+        synced = await self.tree.sync()
+        log.info("bot.ready", cogs=list(self.cogs), commands_synced=len(synced))
+
+
 def build_bot() -> commands.Bot:
     intents = discord.Intents.default()
     intents.members = True
     intents.guilds = True
-    bot = commands.Bot(command_prefix="!unused", intents=intents)
+    bot = PriceTrackerBot(command_prefix="!unused", intents=intents)
     bot.tree.on_error = on_app_command_error  # type: ignore[assignment]
     return bot
-
-
-async def _setup(bot: commands.Bot) -> None:
-    await bot.add_cog(LifecycleCog(bot))
-    for module in COG_MODULES:
-        await bot.load_extension(module)
-    await bot.tree.sync()
-    log.info("bot.ready", cogs=[c for c in bot.cogs])
 
 
 def _configure_queue() -> None:
@@ -50,7 +51,6 @@ async def main() -> None:
     _configure_queue()
 
     bot = build_bot()
-    await _setup(bot)
     await bot.start(settings.discord_token)
 
 

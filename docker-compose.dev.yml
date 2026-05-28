@@ -1,0 +1,11 @@
+services:
+    postgres:
+      image: postgres:15
+      environment:
+        POSTGRES_USER: dev
+        POSTGRES_PASSWORD: dev
+        POSTGRES_DB: pricetracker
+      ports: ["5433:5432"]
+    redis:
+      image: redis:7
+      ports: ["6380:6379"]
