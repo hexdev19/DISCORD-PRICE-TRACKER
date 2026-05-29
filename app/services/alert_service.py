@@ -7,6 +7,8 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.limits import (
+    ALERT_MIN_CONFIDENCE,
+    ALERT_MIN_DROP_RATIO,
     COOLDOWN_DROP_SECONDS,
     COOLDOWN_RESTOCK_SECONDS,
     COOLDOWN_THRESHOLD_SECONDS,
@@ -100,12 +102,17 @@ def _rule_fires(
     prev: PriceSnapshot | None,
     new: PriceSnapshot,
 ) -> bool:
+    if new.confidence is not None and new.confidence < ALERT_MIN_CONFIDENCE:
+        return False
+
     if rule == "drop":
         if prev is None or prev.price is None or new.price is None:
             return False
         if new.in_stock is False:
             return False
-        return new.price < prev.price
+        if new.price >= prev.price:
+            return False
+        return prev.price - new.price >= prev.price * Decimal(str(ALERT_MIN_DROP_RATIO))
 
     if rule == "threshold":
         if new.price is None:
@@ -120,7 +127,12 @@ def _rule_fires(
         return new.price <= threshold
 
     if rule == "restock":
-        return prev is not None and prev.in_stock is False and new.in_stock is True
+        return (
+            prev is not None
+            and prev.in_stock is False
+            and new.in_stock is True
+            and new.price is not None
+        )
 
     return False
 

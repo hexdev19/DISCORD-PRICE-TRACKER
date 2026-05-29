@@ -8,7 +8,12 @@ from datetime import datetime, timedelta, timezone
 from celery import shared_task
 from sqlalchemy import select
 
-from app.config.limits import CHECK_CADENCE_SECONDS
+from app.config.limits import (
+    AI_FALLBACK_CACHE_TTL_SECONDS,
+    AI_FALLBACK_COOLDOWN_SECONDS,
+    CHECK_CADENCE_SECONDS,
+    VALIDATION_RECENT_SNAPSHOTS,
+)
 from app.models.product import Product
 from app.models.watch import Watch
 from app.repositories.price_repo import PriceSnapshotRepository
@@ -16,9 +21,11 @@ from app.scraper.browser import BrowserSession
 from app.scraper.circuit import RedisCircuitBreaker
 from app.scraper.fetcher import fetch_html
 from app.scraper.router import RouterDeps, TierRouter
+from app.scraper.schemas import ScrapeResult
 from app.services import queue
+from app.services.ai_extract import ai_extract
 from app.services.alert_service import AlertService
-from app.services.cooldown import RedisCooldownStore
+from app.services.cooldown import CooldownStore, RedisCooldownStore
 from app.services.price_service import PriceService
 from app.utils.logger import get_logger
 from app.workers.locks import ScrapeLock
@@ -38,9 +45,7 @@ async def _tick() -> int:
                 Watch.paused_at.is_(None),
                 Watch.removed_at.is_(None),
             )
-            .where(
-                (Product.last_scraped_at.is_(None)) | (Product.last_scraped_at <= cutoff)
-            )
+            .where((Product.last_scraped_at.is_(None)) | (Product.last_scraped_at <= cutoff))
             .distinct()
         )
         rows = list((await session.execute(stmt)).scalars().all())
@@ -78,12 +83,17 @@ async def _scrape_product(
                     chosen_router = _build_router(runtime, browser)
                 else:
                     chosen_router = router
-                result = await chosen_router.scrape(
-                    product.source_url, region_hint=product.region
+                result = await chosen_router.scrape(product.source_url, region_hint=product.region)
+                prices = PriceService(session)
+                outcome = await prices.record_snapshot(pid, result)
+
+                evaluate_id: int | None = (
+                    outcome.snapshot.id if result.status in ("ok", "partial") else None
                 )
-                outcome = await PriceService(session).record_snapshot(pid, result)
+                if _should_arbitrate(result.status, outcome.decision):
+                    evaluate_id = await _arbitrate(runtime, prices, product, result, evaluate_id)
+
                 await session.commit()
-                snapshot_id = outcome.snapshot.id
                 scrape_status = result.status
                 tier = result.tier_used
 
@@ -94,17 +104,53 @@ async def _scrape_product(
                 tier=tier,
             )
 
-            if scrape_status in ("ok", "partial"):
-                await _evaluate(runtime, pid, snapshot_id)
+            if evaluate_id is not None:
+                await _evaluate(runtime, pid, evaluate_id)
         finally:
             if browser is not None:
                 await browser.close()
             await lock.release(pid, token)
 
 
-async def _evaluate(
-    runtime: WorkerRuntime, product_id: uuid.UUID, snapshot_id: int
-) -> None:
+def _should_arbitrate(status: str, decision: str) -> bool:
+    return decision == "arbitrate" or status in ("failed", "partial")
+
+
+async def _arbitrate(
+    runtime: WorkerRuntime,
+    prices: PriceService,
+    product: Product,
+    result: ScrapeResult,
+    fallback_id: int | None,
+) -> int | None:
+    cooldowns: CooldownStore = RedisCooldownStore(runtime.redis)
+    cooldown_key = f"ai:cooldown:{product.id}"
+    cache_key = f"ai:cache:{product.source_url}"
+    if await cooldowns.is_cooling(cooldown_key) or await cooldowns.is_cooling(cache_key):
+        return fallback_id
+
+    snapshots = await prices.snapshots.latest_for_product(
+        product.id, limit=VALIDATION_RECENT_SNAPSHOTS
+    )
+    prior = result if result.price is not None else None
+    ai_result = await ai_extract(product.source_url, product, snapshots, prior=prior)
+    await cooldowns.set_cooldown(cache_key, AI_FALLBACK_CACHE_TTL_SECONDS)
+    if ai_result is None or ai_result.price is None:
+        return fallback_id
+
+    ai_outcome = await prices.record_snapshot(product.id, ai_result)
+    await cooldowns.set_cooldown(cooldown_key, AI_FALLBACK_COOLDOWN_SECONDS)
+    log.info(
+        "ai_extract.recorded",
+        product_id=str(product.id),
+        decision=ai_outcome.decision,
+    )
+    if ai_outcome.decision in ("trust", "suspect"):
+        return ai_outcome.snapshot.id
+    return fallback_id
+
+
+async def _evaluate(runtime: WorkerRuntime, product_id: uuid.UUID, snapshot_id: int) -> None:
     cooldowns = RedisCooldownStore(runtime.redis)
     async with runtime.session_factory() as session:
         snapshot = next(
@@ -119,9 +165,7 @@ async def _evaluate(
         )
         if snapshot is None:
             return
-        events = await AlertService(session, cooldowns=cooldowns).evaluate(
-            product_id, snapshot
-        )
+        events = await AlertService(session, cooldowns=cooldowns).evaluate(product_id, snapshot)
         await session.commit()
     log.info(
         "alert.evaluated",

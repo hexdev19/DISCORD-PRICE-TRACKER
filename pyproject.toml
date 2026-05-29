@@ -40,6 +40,7 @@ workers = [
   "celery>=5.3,<6",
   "redis>=5.0,<6",
   "scrapling[fetchers]>=0.3.13",
+  "firecrawl>=2.0,<5",
   "opentelemetry-instrumentation-celery>=0.46b0",
   "opentelemetry-instrumentation-redis>=0.46b0",
 ]
@@ -93,7 +94,7 @@ no_implicit_optional = true
 exclude = ["app/db/migrations/"]
 
 [[tool.mypy.overrides]]
-module = ["scrapling.*", "celery.*"]
+module = ["scrapling.*", "celery.*", "firecrawl.*"]
 ignore_missing_imports = true
 
 # ---------- pytest ----------

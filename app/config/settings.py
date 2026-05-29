@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     proxy_url: str | None = None
 
+    firecrawl_api_key: str | None = None
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
