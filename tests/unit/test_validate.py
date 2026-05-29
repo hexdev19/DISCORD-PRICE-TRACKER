@@ -8,6 +8,7 @@ from app.scraper.schemas import ScrapeResult
 from app.scraper.validate import (
     assess_result,
     candidates_disagree,
+    cross_tier_flags,
     currency_conflicts,
     has_price_smell,
     is_ambiguous_locale,
@@ -149,3 +150,41 @@ def test_assess_handles_missing_fingerprint_data() -> None:
     confidence, flags = assess_result(_result(raw_fingerprint={}))
     assert confidence == 1.0
     assert flags == []
+
+
+def test_cross_tier_agreement_no_flags() -> None:
+    primary = _result(price=Decimal("99.99"), title="Sony WH-1000XM5", in_stock=True)
+    secondary = _result(price=Decimal("99.99"), title="Sony WH-1000XM5 Headphones", in_stock=True)
+    assert cross_tier_flags(primary, secondary) == []
+
+
+def test_cross_tier_price_disagreement() -> None:
+    primary = _result(price=Decimal("100.00"))
+    secondary = _result(price=Decimal("10.00"))
+    assert "cross_tier_price" in cross_tier_flags(primary, secondary)
+
+
+def test_cross_tier_title_disagreement() -> None:
+    primary = _result(title="Sony Headphones")
+    secondary = _result(title="Apple AirPods Pro")
+    assert "cross_tier_title" in cross_tier_flags(primary, secondary)
+
+
+def test_cross_tier_stock_disagreement() -> None:
+    primary = _result(in_stock=True)
+    secondary = _result(in_stock=False)
+    assert cross_tier_flags(primary, secondary) == ["cross_tier_stock"]
+
+
+def test_cross_tier_ignores_missing_values() -> None:
+    primary = _result(price=None, title=None, in_stock=None)
+    secondary = _result(price=Decimal("10.00"), title="Other", in_stock=False)
+    assert cross_tier_flags(primary, secondary) == []
+
+
+def test_assess_with_secondary_merges_cross_tier_flags() -> None:
+    primary = _result(price=Decimal("100.00"))
+    secondary = _result(price=Decimal("5.00"))
+    confidence, flags = assess_result(primary, secondary)
+    assert "cross_tier_price" in flags
+    assert confidence < 1.0

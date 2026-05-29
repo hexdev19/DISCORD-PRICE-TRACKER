@@ -24,6 +24,7 @@ class PriceSnapshotRepository:
         in_stock: bool | None,
         source_tier: int,
         scrape_status: str,
+        confidence: float | None = None,
     ) -> PriceSnapshot:
         snapshot = PriceSnapshot(
             product_id=product_id,
@@ -33,6 +34,7 @@ class PriceSnapshotRepository:
             in_stock=in_stock,
             source_tier=source_tier,
             scrape_status=scrape_status,
+            confidence=confidence,
         )
         self.session.add(snapshot)
         await self.session.flush()

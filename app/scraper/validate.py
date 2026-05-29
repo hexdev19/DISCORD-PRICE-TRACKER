@@ -44,13 +44,20 @@ def currency_conflicts(price_text: str | None, currency: str | None, region: str
     return False
 
 
+def ratio_exceeds(a: float, b: float, ratio: float) -> bool:
+    lo, hi = sorted((abs(a), abs(b)))
+    if lo <= 0:
+        return hi > 0
+    return hi > lo * ratio
+
+
 def candidates_disagree(candidates: list[float] | None) -> bool:
     if not candidates or len(candidates) < 2:
         return False
     ordered = sorted({c for c in candidates if c > 0}, reverse=True)
     if len(ordered) < 2:
         return False
-    return ordered[0] > ordered[1] * VALIDATION_CANDIDATE_RATIO
+    return ratio_exceeds(ordered[0], ordered[1], VALIDATION_CANDIDATE_RATIO)
 
 
 def is_block_title(title: str | None) -> bool:
@@ -62,7 +69,39 @@ def is_block_title(title: str | None) -> bool:
     return any(block in lowered for block in _BLOCK_TITLES)
 
 
-def assess_result(result: ScrapeResult) -> tuple[float, list[str]]:
+def _norm_title(title: str | None) -> str:
+    return re.sub(r"\W+", " ", (title or "").lower()).strip()
+
+
+def titles_disagree(a: str | None, b: str | None) -> bool:
+    na, nb = _norm_title(a), _norm_title(b)
+    if not na or not nb:
+        return False
+    return na not in nb and nb not in na
+
+
+def cross_tier_flags(primary: ScrapeResult, secondary: ScrapeResult) -> list[str]:
+    flags: list[str] = []
+    if (
+        primary.price is not None
+        and secondary.price is not None
+        and ratio_exceeds(float(primary.price), float(secondary.price), VALIDATION_CANDIDATE_RATIO)
+    ):
+        flags.append("cross_tier_price")
+    if titles_disagree(primary.title, secondary.title):
+        flags.append("cross_tier_title")
+    if (
+        primary.in_stock is not None
+        and secondary.in_stock is not None
+        and primary.in_stock != secondary.in_stock
+    ):
+        flags.append("cross_tier_stock")
+    return flags
+
+
+def assess_result(
+    result: ScrapeResult, secondary: ScrapeResult | None = None
+) -> tuple[float, list[str]]:
     flags: list[str] = []
     fp = result.raw_fingerprint
     price_text = fp.get("price_text")
@@ -79,9 +118,11 @@ def assess_result(result: ScrapeResult) -> tuple[float, list[str]]:
         flags.append("block_page_title")
     if result.in_stock is True and result.price is None:
         flags.append("stock_without_price")
+    if secondary is not None:
+        flags.extend(cross_tier_flags(result, secondary))
 
     confidence = max(0.0, 1.0 - VALIDATION_PENALTY * len(flags))
     return confidence, flags
 
 
-__all__ = ["assess_result"]
+__all__ = ["assess_result", "cross_tier_flags"]

@@ -53,7 +53,8 @@ class TierRouter:
             if html is not None:
                 t1 = structured.extract_structured(html, region_hint=region_hint)
                 if t1.is_ok:
-                    return await self._success(domain, url, t1, tier=1)
+                    t2_check = autoextract.auto_extract(html, region_hint=region_hint)
+                    return await self._success(domain, url, t1, tier=1, secondary=t2_check)
 
                 t2 = autoextract.auto_extract(html, region_hint=region_hint)
                 if t2.is_ok:
@@ -90,12 +91,18 @@ class TierRouter:
         )
 
     async def _success(
-        self, domain: str, url: str, result: ScrapeResult, *, tier: int
+        self,
+        domain: str,
+        url: str,
+        result: ScrapeResult,
+        *,
+        tier: int,
+        secondary: ScrapeResult | None = None,
     ) -> ScrapeResult:
         for field, value in identifiers.from_url(url).items():
             if getattr(result, field, None) is None:
                 setattr(result, field, value)
-        result.confidence, result.flags = validate.assess_result(result)
+        result.confidence, result.flags = validate.assess_result(result, secondary)
         await self._deps.circuit.record_success(domain)
         log.info("scrape.end", domain=domain, tier=tier, status="ok")
         return result

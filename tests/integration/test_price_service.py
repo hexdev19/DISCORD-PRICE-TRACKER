@@ -3,13 +3,12 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.repositories.product_repo import ProductRepository
 from app.scraper.schemas import ScrapeResult
 from app.services.errors import NotFound
 from app.services.price_service import PriceService
 from app.services.product_service import ProductService
+from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.integration
 
@@ -35,7 +34,7 @@ async def test_record_snapshot_updates_product_last_fields(
         gtin="1234567890123",
         region_hint="US",
     )
-    snapshot = await svc.record_snapshot(product.id, result)
+    outcome = await svc.record_snapshot(product.id, result)
     await session.commit()
 
     refreshed = await ProductRepository(session).get(product.id)
@@ -48,7 +47,9 @@ async def test_record_snapshot_updates_product_last_fields(
     assert refreshed.brand == "Acme"
     assert refreshed.gtin == "1234567890123"
     assert refreshed.region == "US"
-    assert snapshot.price == Decimal("99.95")
+    assert outcome.snapshot.price == Decimal("99.95")
+    assert outcome.snapshot.confidence == 1.0
+    assert outcome.decision == "trust"
 
 
 async def test_record_snapshot_failed_writes_history_row_with_nulls(
@@ -61,12 +62,12 @@ async def test_record_snapshot_failed_writes_history_row_with_nulls(
 
     svc = PriceService(session)
     result = ScrapeResult(status="failed", tier_used=3)
-    snapshot = await svc.record_snapshot(product.id, result)
+    outcome = await svc.record_snapshot(product.id, result)
     await session.commit()
 
-    assert snapshot.price is None
-    assert snapshot.in_stock is None
-    assert snapshot.scrape_status == "failed"
+    assert outcome.snapshot.price is None
+    assert outcome.snapshot.in_stock is None
+    assert outcome.snapshot.scrape_status == "failed"
 
 
 async def test_record_snapshot_unknown_product_raises(session: AsyncSession) -> None:

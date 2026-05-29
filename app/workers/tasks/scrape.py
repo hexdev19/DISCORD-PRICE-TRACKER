@@ -81,9 +81,9 @@ async def _scrape_product(
                 result = await chosen_router.scrape(
                     product.source_url, region_hint=product.region
                 )
-                snapshot = await PriceService(session).record_snapshot(pid, result)
+                outcome = await PriceService(session).record_snapshot(pid, result)
                 await session.commit()
-                snapshot_id = snapshot.id
+                snapshot_id = outcome.snapshot.id
                 scrape_status = result.status
                 tier = result.tier_used
 
