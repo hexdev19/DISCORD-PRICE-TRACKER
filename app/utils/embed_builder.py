@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -16,6 +17,8 @@ COLOR_THRESHOLD = 0x22C55E
 COLOR_NEUTRAL = 0x6B7280
 COLOR_ERROR = 0xE33D3D
 COLOR_SUCCESS = 0x22C55E
+COLOR_IN_STOCK = 0x22C55E
+COLOR_OUT_OF_STOCK = 0xE33D3D
 
 _RULE_TITLE = {
     "drop": "Price drop",
@@ -46,34 +49,27 @@ def alert_embed(event: AlertEvent, watch: Watch, product: Product) -> dict[str, 
 def watch_added(watch: Watch, product: Product) -> dict[str, Any]:
     scraped = product.last_scraped_at is not None
     fields: list[dict[str, Any]] = [
-        {"name": "ID", "value": f"`{watch.short_id}`", "inline": True},
-        {"name": "Alerts", "value": _format_rules(watch.alert_rules), "inline": True},
+        {"name": "🆔 ID", "value": f"`{watch.short_id}`", "inline": True},
     ]
     if scraped:
+        fields.append({"name": "💵 Price", "value": _price(product), "inline": True})
         fields.append(
             {
-                "name": "Price",
-                "value": f"{_money(product.last_known_price)} {product.currency or ''}".strip(),
+                "name": "📦 Stock",
+                "value": f"{_stock_emoji(product.last_known_in_stock)} "
+                f"{_stock_text(product.last_known_in_stock)}",
                 "inline": True,
             }
         )
-        fields.append(
-            {
-                "name": "Stock",
-                "value": "in stock"
-                if product.last_known_in_stock
-                else ("out of stock" if product.last_known_in_stock is False else "unknown"),
-                "inline": True,
-            }
-        )
+    fields.append({"name": "🔔 Alerts", "value": _format_rules(watch.alert_rules), "inline": False})
     embed: dict[str, Any] = {
-        "title": "Now tracking",
+        "author": {"name": "✅ Now tracking"},
+        "title": product.title or product.source_url,
         "url": product.source_url,
-        "description": product.title or product.source_url,
         "color": COLOR_SUCCESS,
         "fields": fields,
         "footer": {
-            "text": "Use /watch refresh <id> to scrape on demand"
+            "text": f"id: {watch.short_id} · /watch refresh to update"
             if scraped
             else "Fetching product details…"
         },
@@ -93,19 +89,18 @@ def watch_list(
 ) -> dict[str, Any]:
     lines: list[str] = []
     for watch, product in rows:
-        price = _money(product.last_known_price)
-        stock = (
-            "✅"
-            if product.last_known_in_stock
-            else ("❌" if product.last_known_in_stock is False else "❓")
+        title = (product.title or product.source_url)[:64]
+        paused = " · ⏸️ paused" if watch.paused_at is not None else ""
+        lines.append(
+            f"{_stock_emoji(product.last_known_in_stock)} `{watch.short_id}` · "
+            f"{_price(product)}{paused}\n┗ [{title}]({product.source_url})"
         )
-        title = (product.title or product.source_url)[:60]
-        lines.append(f"`{watch.short_id}` · {price} {product.currency or ''} {stock} · {title}")
     return {
-        "title": f"Tracked products ({total}/{cap})",
-        "description": "\n".join(lines) or "_No active watches. Use `/track <url>` to add one._",
+        "title": f"📋 Tracked products · {total}/{cap}",
+        "description": "\n\n".join(lines)
+        or "_No active watches yet._\nUse `/track <url>` to start tracking a product.",
         "color": COLOR_NEUTRAL,
-        "footer": {"text": f"page {page}/{pages}"},
+        "footer": {"text": f"page {page}/{pages} · /info <id> for details"},
     }
 
 
@@ -114,31 +109,40 @@ def watch_info(
     product: Product,
     history: list[Decimal | None],
 ) -> dict[str, Any]:
-    last_check = product.last_scraped_at.isoformat() if product.last_scraped_at else "never"
+    real = [v for v in history if v is not None]
+    cur = product.currency or ""
+    if real:
+        history_value = (
+            f"`{sparkline(history)}`\n"
+            f"low **{_money(min(real))}** · high **{_money(max(real))}** {cur}".strip()
+        )
+    else:
+        history_value = "_no price history yet_"
+
     embed: dict[str, Any] = {
+        "author": {"name": product.domain},
         "title": product.title or product.source_url,
         "url": product.source_url,
-        "color": COLOR_NEUTRAL,
+        "color": _stock_color(product.last_known_in_stock),
         "fields": [
             {
-                "name": "Price",
-                "value": f"{_money(product.last_known_price)} {product.currency or ''}",
+                "name": "💵 Price",
+                "value": f"{_price(product)} {_trend(history)}".strip(),
                 "inline": True,
             },
             {
-                "name": "Stock",
-                "value": "in stock"
-                if product.last_known_in_stock
-                else ("out of stock" if product.last_known_in_stock is False else "unknown"),
+                "name": "📦 Stock",
+                "value": f"{_stock_emoji(product.last_known_in_stock)} "
+                f"{_stock_text(product.last_known_in_stock)}",
                 "inline": True,
             },
             {
-                "name": "Last check",
-                "value": last_check,
+                "name": "🕒 Last check",
+                "value": _relative_time(product.last_scraped_at),
                 "inline": True,
             },
-            {"name": "Alerts", "value": _format_rules(watch.alert_rules), "inline": False},
-            {"name": "History", "value": f"`{sparkline(history)}`", "inline": False},
+            {"name": "🔔 Alerts", "value": _format_rules(watch.alert_rules), "inline": False},
+            {"name": "📈 History", "value": history_value, "inline": False},
         ],
         "footer": {"text": f"id: {watch.short_id}"},
     }
@@ -212,6 +216,40 @@ def _money(value: Any) -> str:
     if value is None:
         return "—"
     return f"{value:.2f}" if isinstance(value, (int, float, Decimal)) else str(value)
+
+
+def _price(product: Product) -> str:
+    amount = _money(product.last_known_price)
+    if amount == "—":
+        return "—"
+    return f"**{amount}** {product.currency or ''}".strip()
+
+
+def _stock_emoji(in_stock: bool | None) -> str:
+    return "🟢" if in_stock else ("🔴" if in_stock is False else "⚪")
+
+
+def _stock_text(in_stock: bool | None) -> str:
+    return "In stock" if in_stock else ("Out of stock" if in_stock is False else "Unknown")
+
+
+def _stock_color(in_stock: bool | None) -> int:
+    return (
+        COLOR_IN_STOCK if in_stock else (COLOR_OUT_OF_STOCK if in_stock is False else COLOR_NEUTRAL)
+    )
+
+
+def _relative_time(value: datetime | None) -> str:
+    if value is None:
+        return "never"
+    return f"<t:{int(value.timestamp())}:R>"
+
+
+def _trend(history: list[Decimal | None]) -> str:
+    real = [v for v in history if v is not None]
+    if len(real) < 2 or real[-1] == real[-2]:
+        return ""
+    return "📉" if real[-1] < real[-2] else "📈"
 
 
 def _mention(kind: str, value: int | None) -> str:

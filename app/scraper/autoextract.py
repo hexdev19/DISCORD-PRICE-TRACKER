@@ -36,9 +36,12 @@ def auto_extract(html: str, *, region_hint: str | None = None) -> ScrapeResult:
     if price is None:
         return ScrapeResult(status="failed", tier_used=2)
 
-    title = _first_text(tree, '//h1') or _meta(tree, "og:title")
+    title = _first_text(tree, "//h1") or _meta(tree, "og:title")
     image = _meta(tree, "og:image")
     in_stock = _stock_signal(tree)
+
+    parsed = [parse_price(c[1]) for c in candidates]
+    price_candidates = sorted({float(p) for p in parsed if p is not None})
 
     status = "ok" if best_score >= 3 and currency is not None else "partial"
     return ScrapeResult(
@@ -50,7 +53,12 @@ def auto_extract(html: str, *, region_hint: str | None = None) -> ScrapeResult:
         currency=currency,
         in_stock=in_stock,
         region_hint=region_hint,
-        raw_fingerprint={"score": best_score, "matched": "heuristic"},
+        raw_fingerprint={
+            "score": best_score,
+            "matched": "heuristic",
+            "price_text": raw_text,
+            "price_candidates": price_candidates,
+        },
     )
 
 

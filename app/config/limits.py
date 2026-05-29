@@ -9,6 +9,11 @@ def _env_int(name: str, default: int) -> int:
     return int(raw) if raw is not None else default
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    return float(raw) if raw is not None else default
+
+
 WATCHES_PER_SERVER: Final[dict[str, int]] = {
     "free": _env_int("LIMIT_WATCHES_PER_SERVER_FREE", 25),
 }
@@ -47,6 +52,10 @@ COOLDOWN_RESTOCK_SECONDS: Final[int] = _env_int("LIMIT_COOLDOWN_RESTOCK", 60 * 6
 
 PRICE_MIN: Final[str] = "0.01"
 PRICE_MAX: Final[str] = "1000000.00"
+
+VALIDATION_TITLE_MIN_LENGTH: Final[int] = _env_int("LIMIT_VALIDATION_TITLE_MIN_LENGTH", 3)
+VALIDATION_CANDIDATE_RATIO: Final[float] = _env_float("LIMIT_VALIDATION_CANDIDATE_RATIO", 2.0)
+VALIDATION_PENALTY: Final[float] = _env_float("LIMIT_VALIDATION_PENALTY", 0.25)
 
 API_REQUESTS_PER_USER_PER_MIN: Final[int] = _env_int("LIMIT_API_REQ_PER_USER", 60)
 API_REQUESTS_PER_IP_PER_MIN: Final[int] = _env_int("LIMIT_API_REQ_PER_IP", 300)

@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 ScrapeStatus = Literal["ok", "partial", "failed"]
-   
+
 ScrapeErrorCode = Literal[
     "ssrf_blocked",
     "fetch_failed",
@@ -44,6 +44,9 @@ class ScrapeResult(BaseModel):
     region_hint: str | None = None
     raw_fingerprint: dict[str, Any] = Field(default_factory=dict)
     error: ScrapeError | None = None
+
+    confidence: float = 1.0
+    flags: list[str] = Field(default_factory=list)
 
     @property
     def is_ok(self) -> bool:

@@ -28,18 +28,22 @@ def extract_structured(html: str, *, region_hint: str | None = None) -> ScrapeRe
     for product in _select_jsonld_products(tree):
         result = _from_jsonld(product, region_hint=region_hint)
         if result is not None:
-            result.raw_fingerprint = {**fingerprint, "matched": "json-ld"}
+            result.raw_fingerprint = {**fingerprint, **result.raw_fingerprint, "matched": "json-ld"}
             return result
         fingerprint["json-ld_seen"] = True
 
     microdata = _from_microdata(tree, region_hint=region_hint)
     if microdata is not None:
-        microdata.raw_fingerprint = {**fingerprint, "matched": "microdata"}
+        microdata.raw_fingerprint = {
+            **fingerprint,
+            **microdata.raw_fingerprint,
+            "matched": "microdata",
+        }
         return microdata
 
     og = _from_opengraph(tree, region_hint=region_hint)
     if og is not None:
-        og.raw_fingerprint = {**fingerprint, "matched": "opengraph"}
+        og.raw_fingerprint = {**fingerprint, **og.raw_fingerprint, "matched": "opengraph"}
         return og
 
     return ScrapeResult(status="failed", tier_used=1, raw_fingerprint=fingerprint)
@@ -102,9 +106,7 @@ def _from_jsonld(node: dict[str, Any], *, region_hint: str | None) -> ScrapeResu
         return None
 
     status = (
-        "ok"
-        if price is not None and (in_stock is not None or currency is not None)
-        else "partial"
+        "ok" if price is not None and (in_stock is not None or currency is not None) else "partial"
     )
     return ScrapeResult(
         status=status,
@@ -118,6 +120,7 @@ def _from_jsonld(node: dict[str, Any], *, region_hint: str | None) -> ScrapeResu
         gtin=gtin,
         mpn=mpn,
         region_hint=region_hint,
+        raw_fingerprint={"price_text": price_raw},
     )
 
 
@@ -132,9 +135,7 @@ def _offer_fields(offers: Any) -> tuple[str | None, str | None, str | None]:
     return _coerce_str(price), _coerce_str(currency), _coerce_str(availability)
 
 
-def _from_microdata(
-    tree: lxml_html.HtmlElement, *, region_hint: str | None
-) -> ScrapeResult | None:
+def _from_microdata(tree: lxml_html.HtmlElement, *, region_hint: str | None) -> ScrapeResult | None:
     scope = _pick_product_scope(_find_product_scopes(tree))
     if scope is None:
         return None
@@ -151,12 +152,10 @@ def _from_microdata(
 
     offer_scope = _find_subscope(scope, "offers", _OFFER_TYPES)
     offer = offer_scope if offer_scope is not None else scope
-    price_raw = _direct_itemprop(offer, "price", attr="content") or _direct_itemprop(
-        offer, "price"
+    price_raw = _direct_itemprop(offer, "price", attr="content") or _direct_itemprop(offer, "price")
+    currency_raw = _direct_itemprop(offer, "priceCurrency", attr="content") or _direct_itemprop(
+        offer, "priceCurrency"
     )
-    currency_raw = _direct_itemprop(
-        offer, "priceCurrency", attr="content"
-    ) or _direct_itemprop(offer, "priceCurrency")
     avail = _direct_itemprop(offer, "availability", attr="href") or _direct_itemprop(
         offer, "availability"
     )
@@ -176,12 +175,13 @@ def _from_microdata(
         currency=currency,
         in_stock=in_stock,
         region_hint=region_hint,
+        raw_fingerprint={"price_text": price_raw},
     )
 
 
 def _find_product_scopes(tree: lxml_html.HtmlElement) -> list[lxml_html.HtmlElement]:
     nodes: list[lxml_html.HtmlElement] = tree.xpath(
-        '//*[@itemscope and ('
+        "//*[@itemscope and ("
         'contains(@itemtype, "schema.org/Product")'
         ' or contains(@itemtype, "schema.org/IndividualProduct"))]'
     )
@@ -226,9 +226,7 @@ def _direct_itemprop(
     return None
 
 
-def _direct_itemprop_nodes(
-    scope: lxml_html.HtmlElement, name: str
-) -> list[lxml_html.HtmlElement]:
+def _direct_itemprop_nodes(scope: lxml_html.HtmlElement, name: str) -> list[lxml_html.HtmlElement]:
     return [
         el
         for el in scope.xpath(f'.//*[@itemprop="{name}"]')
@@ -247,9 +245,7 @@ def _nearest_itemscope(
     return root
 
 
-def _from_opengraph(
-    tree: lxml_html.HtmlElement, *, region_hint: str | None
-) -> ScrapeResult | None:
+def _from_opengraph(tree: lxml_html.HtmlElement, *, region_hint: str | None) -> ScrapeResult | None:
     meta = _meta_map(tree)
     title = meta.get("og:title")
     image = meta.get("og:image")
@@ -272,6 +268,7 @@ def _from_opengraph(
         currency=currency,
         in_stock=in_stock,
         region_hint=region_hint,
+        raw_fingerprint={"price_text": price_raw},
     )
 
 

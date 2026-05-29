@@ -69,6 +69,21 @@ _OUT_OF_STOCK_TOKENS = (
 )
 
 
+def currency_from_text(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    for sym, code in _SYMBOL_TO_ISO.items():
+        if sym in raw:
+            return code
+    return None
+
+
+def currency_for_region(region_hint: str | None) -> str | None:
+    if not region_hint:
+        return None
+    return _REGION_DEFAULT_CURRENCY.get(region_hint.upper())
+
+
 def parse_currency(raw: str | None, *, region_hint: str | None = None) -> str | None:
     if not raw:
         if region_hint and region_hint.upper() in _REGION_DEFAULT_CURRENCY:

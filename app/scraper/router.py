@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Awaitable, Callable
 from urllib.parse import urlsplit
 
-from app.scraper import autoextract, identifiers, structured
+from app.scraper import autoextract, identifiers, structured, validate
 from app.scraper.adapters import find_adapter
 from app.scraper.adapters.base import SiteAdapter
 from app.scraper.circuit import CircuitBreaker
@@ -95,6 +95,7 @@ class TierRouter:
         for field, value in identifiers.from_url(url).items():
             if getattr(result, field, None) is None:
                 setattr(result, field, value)
+        result.confidence, result.flags = validate.assess_result(result)
         await self._deps.circuit.record_success(domain)
         log.info("scrape.end", domain=domain, tier=tier, status="ok")
         return result

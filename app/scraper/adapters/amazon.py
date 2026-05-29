@@ -22,9 +22,7 @@ _TLD_TO_REGION: dict[str, str] = {
 
 
 class AmazonAdapter:
-    domain_match = re.compile(
-        r"^(?:www\.)?amazon\.(com|co\.uk|de|fr|it|es|ca|com\.mx)$"
-    )
+    domain_match = re.compile(r"^(?:www\.)?amazon\.(com|co\.uk|de|fr|it|es|ca|com\.mx)$")
     needs_browser = False
 
     async def extract(
@@ -82,7 +80,7 @@ class AmazonAdapter:
             in_stock=parse_stock(avail),
             region_hint=region,
             asin=asin,
-            raw_fingerprint={"matched": "amazon-dom"},
+            raw_fingerprint={"matched": "amazon-dom", "price_text": price_text},
         )
 
 
