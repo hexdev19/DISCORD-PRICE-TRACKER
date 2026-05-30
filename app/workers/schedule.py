@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from app.config.limits import CHECK_CADENCE_SECONDS
 from typing import Any
 
 from celery.schedules import crontab
@@ -7,7 +7,7 @@ from celery.schedules import crontab
 BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
     "scrape-tick": {
         "task": "scrape.tick",
-        "schedule": crontab(minute="*/5"),
+        "schedule": crontab(minute=f"*/{CHECK_CADENCE_SECONDS // 60}"),
     },
     "circuit-probe": {
         "task": "maintenance.circuit_probe",

@@ -31,11 +31,19 @@ _RULE_COLOR = {
     "restock": COLOR_RESTOCK,
 }
 
+_TITLE_MAX = 256
+
+
+def _title(text: str) -> str:
+    return text if len(text) <= _TITLE_MAX else text[: _TITLE_MAX - 1] + "…"
+
 
 def alert_embed(event: AlertEvent, watch: Watch, product: Product) -> dict[str, Any]:
     rule = event.rule_type
     embed: dict[str, Any] = {
-        "title": f"{_RULE_TITLE.get(rule, rule.title())}: {product.title or product.source_url}",
+        "title": _title(
+            f"{_RULE_TITLE.get(rule, rule.title())}: {product.title or product.source_url}"
+        ),
         "url": product.source_url,
         "description": _format_change(event),
         "color": _RULE_COLOR.get(rule, COLOR_NEUTRAL),
@@ -64,7 +72,7 @@ def watch_added(watch: Watch, product: Product) -> dict[str, Any]:
     fields.append({"name": "🔔 Alerts", "value": _format_rules(watch.alert_rules), "inline": False})
     embed: dict[str, Any] = {
         "author": {"name": "✅ Now tracking"},
-        "title": product.title or product.source_url,
+        "title": _title(product.title or product.source_url),
         "url": product.source_url,
         "color": COLOR_SUCCESS,
         "fields": fields,
@@ -121,7 +129,7 @@ def watch_info(
 
     embed: dict[str, Any] = {
         "author": {"name": product.domain},
-        "title": product.title or product.source_url,
+        "title": _title(product.title or product.source_url),
         "url": product.source_url,
         "color": _stock_color(product.last_known_in_stock),
         "fields": [

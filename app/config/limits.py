@@ -18,10 +18,10 @@ WATCHES_PER_SERVER: Final[dict[str, int]] = {
     "free": _env_int("LIMIT_WATCHES_PER_SERVER_FREE", 25),
 }
 WATCHES_PER_USER_PER_SERVER: Final[dict[str, int]] = {
-    "free": _env_int("LIMIT_WATCHES_PER_USER_PER_SERVER_FREE", 10),
+    "free": _env_int("LIMIT_WATCHES_PER_USER_PER_SERVER_FREE", 25),
 }
 
-CHECK_CADENCE_SECONDS: Final[int] = _env_int("LIMIT_CHECK_CADENCE_SECONDS", 6 * 60 * 60)
+CHECK_CADENCE_SECONDS: Final[int] = _env_int("LIMIT_CHECK_CADENCE_SECONDS",100)
 
 COMMANDS_PER_USER_PER_MIN: Final[int] = _env_int("LIMIT_CMD_PER_USER_PER_MIN", 10)
 COMMANDS_PER_SERVER_PER_MIN: Final[int] = _env_int("LIMIT_CMD_PER_SERVER_PER_MIN", 60)
