@@ -1,4 +1,5 @@
 import { SiteNav } from "@/components/landing/site-nav";
+import { AuthNotice } from "@/components/landing/auth-notice";
 import { Hero } from "@/components/landing/hero";
 import { PriceTicker } from "@/components/landing/price-ticker";
 import { Features } from "@/components/landing/features";
@@ -11,6 +12,7 @@ export default function Home() {
   return (
     <>
       <SiteNav />
+      <AuthNotice />
       <main>
         <Hero />
         <PriceTicker />

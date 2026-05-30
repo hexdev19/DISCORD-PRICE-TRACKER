@@ -3,7 +3,8 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routers import auth
+from app.api.errors import register_error_handlers
+from app.api.routers import auth, dashboard
 from app.config.settings import get_settings
 from app.observability.logging import configure_logging
 from app.observability.sentry import init_sentry
@@ -25,6 +26,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(auth.router)
+    app.include_router(dashboard.router)
+    register_error_handlers(app)
 
     if settings.otel_exporter_otlp_endpoint:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
