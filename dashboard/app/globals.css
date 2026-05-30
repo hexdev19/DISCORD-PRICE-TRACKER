@@ -1,0 +1,350 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Price Tracker — brutalist / technical design system
+   Flat surfaces, hard hairlines, sharp corners, one cyan accent.
+   No glow, no glass, no radial blooms, no decorative gradients.
+   ============================================================ */
+
+@theme {
+  /* Surfaces — near-black, faintly cool, almost no chroma */
+  --color-ink: oklch(0.165 0.005 240);
+  --color-ink-1: oklch(0.195 0.006 240);
+  --color-ink-2: oklch(0.235 0.007 240);
+  --color-ink-3: oklch(0.3 0.008 240);
+
+  /* Hairlines — visible, structural (brutalist borders carry the design) */
+  --color-line: oklch(1 0 0 / 12%);
+  --color-line-strong: oklch(1 0 0 / 26%);
+
+  /* Text */
+  --color-fg: oklch(0.97 0.003 240);
+  --color-muted: oklch(0.72 0.006 240);
+  --color-faint: oklch(0.54 0.008 240);
+
+  /* The single accent — cyan-400 */
+  --color-cyan: oklch(0.8 0.13 215);
+  --color-cyan-bright: oklch(0.87 0.12 210);
+  --color-cyan-deep: oklch(0.66 0.13 218);
+  --color-cyan-dim: oklch(0.5 0.08 220);
+
+  /* Type */
+  --font-display: var(--font-archivo), "Segoe UI", sans-serif;
+  --font-sans: var(--font-archivo), "Segoe UI", sans-serif;
+  --font-mono: var(--font-martian), ui-monospace, monospace;
+  --font-pixel: var(--font-silkscreen), var(--font-martian), monospace;
+
+  /* Sharp by default */
+  --radius: 0px;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-ink);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+}
+
+::selection {
+  background: oklch(0.8 0.13 215 / 0.3);
+  color: var(--color-fg);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+
+/* ============================================================
+   Page-wide technical grid (kept across the entire page)
+   ============================================================ */
+
+.grid-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, oklch(1 0 0 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 0.045) 1px, transparent 1px);
+  background-size: 3.25rem 3.25rem;
+}
+
+/* ============================================================
+   Surfaces — flat, bordered, sharp
+   ============================================================ */
+
+.panel {
+  background: var(--color-ink-1);
+  border: 1px solid var(--color-line);
+}
+
+.panel-quiet {
+  background: oklch(0.18 0.006 240);
+  border: 1px solid var(--color-line);
+}
+
+/* Interactive surface: border reacts, minimal lift, no shadow bloom */
+.lift {
+  transition: transform 0.35s var(--ease-out-expo),
+    border-color 0.35s var(--ease-out-expo),
+    background-color 0.35s var(--ease-out-expo);
+}
+.lift:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-line-strong);
+}
+
+/* ============================================================
+   Accent helpers
+   ============================================================ */
+
+.text-cyan { color: var(--color-cyan); }
+
+/* Status marker: a static cyan square (terminal-style, no pulse/glow) */
+.beacon {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  background: var(--color-cyan);
+}
+
+/* Corner ticks for the technical framing of the bot */
+.corner {
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  border: 0 solid var(--color-cyan);
+}
+
+/* ============================================================
+   Typography helpers
+   ============================================================ */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+.tnum {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+.font-pixel {
+  font-family: var(--font-pixel);
+}
+
+/* Hero title — Hermes-style blocky pixel face with a layered cyan
+   outline-echo extrusion. Title stays white; cyan carries the depth. */
+.title-hermes {
+  color: oklch(0.985 0.003 230);
+  text-shadow:
+    0.014em 0.018em 0 var(--color-cyan),
+    0.03em 0.038em 0 var(--color-cyan-deep),
+    0.046em 0.058em 0 var(--color-cyan-dim),
+    0.064em 0.08em 0 oklch(0.4 0.07 222 / 0.7),
+    0.03em 0.06em 0.05em oklch(0.8 0.13 215 / 0.45);
+}
+
+/* Hero-only atmosphere (allowed exception to the flat rule):
+   one subtle radial highlight + a faint noise grain. */
+.hero-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(38rem 26rem at 50% 38%, oklch(0.8 0.13 215 / 0.1), transparent 70%),
+    radial-gradient(28rem 20rem at 50% 92%, oklch(0.66 0.13 218 / 0.07), transparent 72%);
+}
+
+.hero-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 170px 170px;
+}
+
+/* Subtle floating for the hero bot */
+.float-bot {
+  animation: float-bot 6s ease-in-out infinite;
+}
+@keyframes float-bot {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Terminal caret for the command console */
+.caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 1.05em;
+  background: var(--color-cyan);
+  vertical-align: -0.15em;
+  animation: blink 1.1s steps(1) infinite;
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* ============================================================
+   Hero HUD / tactical-telemetry enhancements (scoped to hero)
+   The mascot is framed as the subject of a targeting scope.
+   ============================================================ */
+
+/* Faint CRT scanlines, masked so they bloom out toward the edges */
+.hero-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.6;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 2px,
+    oklch(1 0 0 / 0.02) 2px,
+    oklch(1 0 0 / 0.02) 3px
+  );
+  -webkit-mask-image: radial-gradient(72% 64% at 50% 44%, #000 18%, transparent 100%);
+  mask-image: radial-gradient(72% 64% at 50% 44%, #000 18%, transparent 100%);
+}
+
+/* The reticle/scan field that sits behind the mascot, clipped to a soft disc */
+.hero-field {
+  -webkit-mask-image: radial-gradient(circle at center, #000 58%, transparent 94%);
+  mask-image: radial-gradient(circle at center, #000 58%, transparent 94%);
+}
+
+/* Radar sweep traveling down the scope */
+.hero-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 34%;
+  top: -34%;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    oklch(0.8 0.13 215 / 0.1) 72%,
+    oklch(0.87 0.12 210 / 0.32)
+  );
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+  animation: hero-scan 4.4s var(--ease-out-quint) infinite;
+}
+@keyframes hero-scan {
+  0% { top: -34%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* Slow-rotating outer reticle ring */
+.reticle-spin {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: reticle-spin 36s linear infinite;
+}
+@keyframes reticle-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Live alert chip — a gentle drift, offset from the mascot float so they
+   never beat in sync (the asymmetry reads as "alive"). */
+.chip-float {
+  animation: chip-float 5.5s ease-in-out infinite;
+}
+@keyframes chip-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+/* Vertical edge rail label */
+.rail-y {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* ============================================================
+   Ticker marquee (a genuine data feed, kept intentionally)
+   ============================================================ */
+
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 50s linear infinite;
+}
+.marquee-track:hover .marquee {
+  animation-play-state: paused;
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ============================================================
+   Scroll reveal — restrained (short, opacity-led)
+   ============================================================ */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s var(--ease-out-quint),
+    transform 0.5s var(--ease-out-quint);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .marquee { animation: none; }
+  .lift:hover { transform: none; }
+  .float-bot { animation: none; }
+  .caret { animation: none; }
+  .hero-scan,
+  .reticle-spin,
+  .chip-float { animation: none; }
+}
