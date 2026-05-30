@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     discord_token: str
     discord_client_id: str
     discord_client_secret: str
+    discord_bot_permissions: int = 117760
+
+    api_public_url: str = "http://localhost:8000"
+    dashboard_url: str = "http://localhost:3000"
 
     session_cookie_secret: str = Field(min_length=32)
     oauth_token_enc_key: str = Field(min_length=32)

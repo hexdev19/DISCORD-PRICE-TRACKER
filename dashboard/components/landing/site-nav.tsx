@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { TrackerMark, Wordmark } from "./logo";
 import { PrimaryButton } from "./buttons";
+import { inviteUrl } from "@/lib/api";
 
 const LINKS = [
   { label: "Features", href: "#features" },
@@ -42,7 +43,7 @@ export function SiteNav() {
         </div>
 
         <div className="hidden md:block">
-          <PrimaryButton href="/invite" size="lg">
+          <PrimaryButton href={inviteUrl} size="lg">
             Add to Discord
           </PrimaryButton>
         </div>
@@ -72,7 +73,7 @@ export function SiteNav() {
               </Link>
             ))}
             <div className="mt-4">
-              <PrimaryButton href="/invite" className="w-full" size="lg">
+              <PrimaryButton href={inviteUrl} className="w-full" size="lg">
                 Add to Discord
               </PrimaryButton>
             </div>

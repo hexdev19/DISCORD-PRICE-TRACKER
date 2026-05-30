@@ -23,6 +23,7 @@ class UserService:
         discord_id: int,
         discord_username: str | None = None,
         discord_avatar: str | None = None,
+        email: str | None = None,
     ) -> User:
         user = await self.users.get_by_discord_id(discord_id)
         if user is None:
@@ -30,6 +31,7 @@ class UserService:
                 discord_id=discord_id,
                 discord_username=discord_username,
                 discord_avatar=discord_avatar,
+                email=email,
             )
             await self.audit.record(
                 action="user.created",
@@ -43,6 +45,8 @@ class UserService:
             user.discord_username = discord_username
         if discord_avatar is not None:
             user.discord_avatar = discord_avatar
+        if email is not None:
+            user.email = email
         await self.session.flush()
         return user
 
