@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TrackerMark } from "./logo";
 import { PrimaryButton } from "./buttons";
+import { inviteUrl } from "@/lib/api";
 
 const COLUMNS = [
   {
@@ -49,7 +50,7 @@ export function SiteFooter() {
               </p>
             </div>
           </div>
-          <PrimaryButton href="/invite" size="lg">
+          <PrimaryButton href={inviteUrl} size="lg">
             Add to Discord
           </PrimaryButton>
         </div>

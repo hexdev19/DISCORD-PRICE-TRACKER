@@ -1,6 +1,7 @@
 import { PrimaryButton, GhostButton } from "./buttons";
 import { Reveal } from "./reveal";
 import { TrackerMark } from "./logo";
+import { inviteUrl } from "@/lib/api";
 
 export function FinalCta() {
   return (
@@ -18,7 +19,7 @@ export function FinalCta() {
             your channel catch the next drop for you.
           </p>
           <div className="mt-9 flex flex-wrap justify-center gap-3">
-            <PrimaryButton href="/invite" size="lg">
+            <PrimaryButton href={inviteUrl} size="lg">
               Add to Discord
             </PrimaryButton>
             <GhostButton href="#how" size="lg">

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { PrimaryButton, GhostButton } from "./buttons";
 import { Reveal } from "./reveal";
+import { inviteUrl } from "@/lib/api";
 
 /** Targeting-scope reticle drawn behind the mascot. Pure decoration. */
 function HeroReticle() {
@@ -171,7 +172,7 @@ export function Hero() {
 
         <Reveal delay={260}>
           <div className="mt-[clamp(1.1rem,2.8vh,2rem)] flex flex-wrap items-center justify-center gap-3">
-            <PrimaryButton href="/invite" size="lg">
+            <PrimaryButton href={inviteUrl} size="lg">
               Add to Discord
             </PrimaryButton>
             <GhostButton href="#how" size="lg">

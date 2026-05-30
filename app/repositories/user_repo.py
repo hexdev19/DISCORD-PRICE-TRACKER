@@ -25,11 +25,13 @@ class UserRepository:
         discord_id: int,
         discord_username: str | None = None,
         discord_avatar: str | None = None,
+        email: str | None = None,
     ) -> User:
         user = User(
             discord_id=discord_id,
             discord_username=discord_username,
             discord_avatar=discord_avatar,
+            email=email,
         )
         self.session.add(user)
         await self.session.flush()

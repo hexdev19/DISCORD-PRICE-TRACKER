@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { Reveal } from "./reveal";
 import { GhostButton } from "./buttons";
+import { loginUrl } from "@/lib/api";
 
 /**
  * Price-history chart: flat cyan line, gray out-of-stock bands, a
@@ -70,7 +71,7 @@ export function DashboardPreview() {
             the dashboard shows you the receipts.
           </p>
           <div className="mt-7">
-            <GhostButton href="/login">Open the dashboard</GhostButton>
+            <GhostButton href={loginUrl}>Open the dashboard</GhostButton>
           </div>
         </Reveal>
 
