@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Martian_Mono, Silkscreen } from "next/font/google";
-// @ts-expect-error -- Next.js handles global CSS side-effect imports.
+// @ts-ignore: allow side-effect import of CSS in Next.js app directory
 import "./globals.css";
 
 const archivo = Archivo({

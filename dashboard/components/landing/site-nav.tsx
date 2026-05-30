@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { TrackerMark, Wordmark } from "./logo";
-import { PrimaryButton } from "./buttons";
-import { inviteUrl } from "@/lib/api";
+import { PrimaryButton, GhostButton } from "./buttons";
+import { inviteUrl, loginUrl } from "@/lib/api";
 
 const LINKS = [
   { label: "Features", href: "#features" },
@@ -42,7 +42,10 @@ export function SiteNav() {
           ))}
         </div>
 
-        <div className="hidden md:block">
+        <div className="hidden items-center gap-3 md:flex">
+          <GhostButton href={loginUrl} size="lg">
+            Sign in
+          </GhostButton>
           <PrimaryButton href={inviteUrl} size="lg">
             Add to Discord
           </PrimaryButton>
@@ -72,7 +75,10 @@ export function SiteNav() {
                 {link.label}
               </Link>
             ))}
-            <div className="mt-4">
+            <div className="mt-4 flex flex-col gap-3">
+              <GhostButton href={loginUrl} className="w-full" size="lg">
+                Sign in
+              </GhostButton>
               <PrimaryButton href={inviteUrl} className="w-full" size="lg">
                 Add to Discord
               </PrimaryButton>

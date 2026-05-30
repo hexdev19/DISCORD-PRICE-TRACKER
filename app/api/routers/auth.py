@@ -53,7 +53,7 @@ async def discord_callback(
         discord_avatar=profile.avatar,
         email=profile.email,
     )
-    response = RedirectResponse(f"{dashboard}/?auth=success")
+    response = RedirectResponse(f"{dashboard}/dashboard")
     security.set_session_cookie(response, security.create_session(str(user.id)))
     security.clear_state_cookie(response)
     return response
@@ -80,7 +80,7 @@ async def discord_bot_callback(
     if not guild_id or not security.check_state(oauth_state, state):
         return RedirectResponse(f"{dashboard}/?bot=error")
     log.info("bot.authorized", guild_id=guild_id)
-    response = RedirectResponse(f"{dashboard}/?bot=added")
+    response = RedirectResponse(f"{dashboard}/dashboard?bot=added")
     security.clear_state_cookie(response)
     return response
 
@@ -89,7 +89,7 @@ async def discord_bot_callback(
 async def me(user: User = Depends(current_user)) -> dict[str, Any]:
     return {
         "id": str(user.id),
-        "discord_id": str(user.discord_id),
+        "discordId": str(user.discord_id),
         "username": user.discord_username,
         "avatar": user.discord_avatar,
         "email": user.email,

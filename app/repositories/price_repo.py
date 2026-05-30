@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import desc, select
+from sqlalchemy import asc, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.price_snapshot import PriceSnapshot
@@ -48,5 +48,19 @@ class PriceSnapshotRepository:
             .where(PriceSnapshot.product_id == product_id)
             .order_by(desc(PriceSnapshot.observed_at))
             .limit(limit)
+        )
+        return list((await self.session.execute(stmt)).scalars())
+
+    async def range_for_product(
+        self, product_id: uuid.UUID, *, since: datetime, until: datetime
+    ) -> list[PriceSnapshot]:
+        stmt = (
+            select(PriceSnapshot)
+            .where(
+                PriceSnapshot.product_id == product_id,
+                PriceSnapshot.observed_at >= since,
+                PriceSnapshot.observed_at <= until,
+            )
+            .order_by(asc(PriceSnapshot.observed_at))
         )
         return list((await self.session.execute(stmt)).scalars())
