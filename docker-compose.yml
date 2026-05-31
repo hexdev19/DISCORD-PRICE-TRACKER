@@ -1,0 +1,182 @@
+x-python-env: &python-env
+  DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://pt:pt@postgres:5432/pricetracker}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  APP_ENV: ${APP_ENV:-production}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  RELEASE_SHA: ${RELEASE_SHA:-}
+
+x-python-service: &python-service
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks:
+    - backend
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pt}
+      POSTGRES_DB: ${POSTGRES_DB:-pricetracker}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pt} -d ${POSTGRES_DB:-pricetracker}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+
+  migrate:
+    <<: *python-service
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    environment:
+      <<: *python-env
+    command: >
+      sh -c "alembic upgrade head"
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+  api:
+    <<: *python-service
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    environment:
+      <<: *python-env
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:8000}
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:3000}
+      SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET}
+      OAUTH_TOKEN_ENC_KEY: ${OAUTH_TOKEN_ENC_KEY}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    networks:
+      - backend
+      - frontend
+
+
+  worker:
+    <<: *python-service
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      <<: *python-env
+      PROXY_URL: ${PROXY_URL:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: ${WORKER_REPLICAS:-1}
+
+
+  beat:
+    <<: *python-service
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.beat
+    environment:
+      <<: *python-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    # Only ONE beat instance must ever run to avoid duplicate scheduled tasks.
+    deploy:
+      replicas: 1
+
+
+  bot:
+    <<: *python-service
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.bot
+    environment:
+      <<: *python-env
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_BOT_PERMISSIONS: ${DISCORD_BOT_PERMISSIONS:-117760}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${API_PUBLIC_URL:-http://localhost:8000}
+    restart: unless-stopped
+    environment:
+      NEXTAUTH_URL: ${DASHBOARD_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${SESSION_COOKIE_SECRET}
+    ports:
+      - "${DASHBOARD_HOST_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - frontend
+
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  backend:
+    driver: bridge
+  frontend:
+    driver: bridge
