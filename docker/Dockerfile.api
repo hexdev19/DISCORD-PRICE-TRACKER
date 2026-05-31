@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
+COPY README.md .
 # Install the package with its API extras into a local prefix
 RUN pip install --no-cache-dir --prefix=/install ".[api]"
 

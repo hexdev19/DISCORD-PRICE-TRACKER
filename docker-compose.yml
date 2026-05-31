@@ -1,11 +1,22 @@
 x-python-env: &python-env
   DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://pt:pt@postgres:5432/pricetracker}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-  APP_ENV: ${APP_ENV:-production}
+  APP_ENV: ${APP_ENV:-prod}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   SENTRY_DSN: ${SENTRY_DSN:-}
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
   RELEASE_SHA: ${RELEASE_SHA:-}
+  # Discord credentials — required by Settings on all services
+  DISCORD_TOKEN: ${DISCORD_TOKEN}
+  DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+  DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+  DISCORD_BOT_PERMISSIONS: ${DISCORD_BOT_PERMISSIONS:-117760}
+  # Auth secrets — required by Settings on all services
+  SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET}
+  OAUTH_TOKEN_ENC_KEY: ${OAUTH_TOKEN_ENC_KEY}
+  # Optional extras
+  FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+  PROXY_URL: ${PROXY_URL:-}
 
 x-python-service: &python-service
   restart: unless-stopped
@@ -79,10 +90,6 @@ services:
       <<: *python-env
       API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:8000}
       DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:3000}
-      SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET}
-      OAUTH_TOKEN_ENC_KEY: ${OAUTH_TOKEN_ENC_KEY}
-      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
-      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
     ports:
       - "${API_HOST_PORT:-8000}:8000"
     depends_on:
@@ -108,7 +115,6 @@ services:
       dockerfile: docker/Dockerfile.worker
     environment:
       <<: *python-env
-      PROXY_URL: ${PROXY_URL:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -142,9 +148,6 @@ services:
       dockerfile: docker/Dockerfile.bot
     environment:
       <<: *python-env
-      DISCORD_TOKEN: ${DISCORD_TOKEN}
-      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
-      DISCORD_BOT_PERMISSIONS: ${DISCORD_BOT_PERMISSIONS:-117760}
     depends_on:
       migrate:
         condition: service_completed_successfully
